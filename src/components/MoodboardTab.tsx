@@ -14,6 +14,7 @@ import {
   Film,
   Image as ImageIcon,
   Pencil,
+  Upload,
   X
 } from 'lucide-react';
 
@@ -43,17 +44,25 @@ export const MoodboardTab: React.FC = () => {
 
   const categories: MoodboardCategory[] = ['Sleep Over', 'Outfit', 'Video', 'Color Hunt', 'Food', 'Inspiration'];
 
-  const presetImages = [
-    { label: 'Sleep Over Aesthetics', url: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=1200&auto=format&fit=crop' },
-    { label: 'Bangkok Fashion OOTD', url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=1200&auto=format&fit=crop' },
-    { label: 'Street Food Feast', url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1200&auto=format&fit=crop' },
-    { label: 'Color Hunt Vibes', url: 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=1200&auto=format&fit=crop' },
-  ];
-
   const filteredItems = moodboard.filter(item => {
     if (selectedCategory !== 'All' && item.category !== selectedCategory) return false;
     return true;
   });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setThumbnailUrl(result);
+        if (!mediaUrl.trim() || mediaType === 'image') {
+          setMediaUrl(result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const openAddModal = () => {
     setEditingItemId(null);
@@ -81,15 +90,16 @@ export const MoodboardTab: React.FC = () => {
 
   const handleSaveSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !mediaUrl.trim()) return;
+    const finalMediaUrl = mediaUrl.trim() || thumbnailUrl.trim();
+    if (!title.trim() || !finalMediaUrl) return;
 
     if (editingItemId) {
       editMoodboardItem(editingItemId, {
         title,
         category,
         mediaType,
-        mediaUrl,
-        thumbnailUrl: thumbnailUrl || (mediaType === 'image' ? mediaUrl : undefined),
+        mediaUrl: finalMediaUrl,
+        thumbnailUrl: thumbnailUrl || (mediaType === 'image' ? finalMediaUrl : undefined),
         caption,
         addedBy
       });
@@ -98,8 +108,8 @@ export const MoodboardTab: React.FC = () => {
         title,
         category,
         mediaType,
-        mediaUrl,
-        thumbnailUrl: thumbnailUrl || (mediaType === 'image' ? mediaUrl : undefined),
+        mediaUrl: finalMediaUrl,
+        thumbnailUrl: thumbnailUrl || (mediaType === 'image' ? finalMediaUrl : undefined),
         caption,
         addedBy
       });
@@ -116,54 +126,55 @@ export const MoodboardTab: React.FC = () => {
     <div className="space-y-6 pb-20">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
         <div>
           <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
             <Camera className="w-4 h-4 text-rose-500" />
-            <span>Visual Moodboard & Content Gallery</span>
+            <span>Capture the Vibe</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
             Trip Moodboard & Reel Ideas
           </h2>
           <p className="text-xs text-indigo-400 font-medium">
-            Outfit lookbooks, sleepover aesthetics, color hunt ideas, and TikTok/IG reel references.
+            Photo poses, outfit inspo, reel ideas, and unforgettable moments.
           </p>
+        </div>
+      </div>
+
+      {/* Category Dropdown & Idea Button */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center space-x-2 bg-white px-3.5 py-2.5 rounded-2xl border border-indigo-100/80 shadow-2xs text-xs">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value as any)}
+            className="bg-transparent font-black text-indigo-950 outline-none cursor-pointer pr-1"
+          >
+            <option value="All">All Moods ({moodboard.length})</option>
+            {categories.map(cat => {
+              const count = moodboard.filter(m => m.category === cat).length;
+              return (
+                <option key={cat} value={cat}>
+                  {cat} ({count})
+                </option>
+              );
+            })}
+          </select>
         </div>
 
         <button
           onClick={openAddModal}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition self-start sm:self-auto"
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Add Moodboard Idea</span>
+          <span>Idea</span>
         </button>
-      </div>
-
-      {/* Category Dropdown */}
-      <div className="flex items-center space-x-2 bg-white px-3.5 py-2.5 rounded-2xl border border-indigo-100/80 shadow-2xs text-xs w-fit">
-        <span className="text-indigo-400 font-bold">Category:</span>
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value as any)}
-          className="bg-transparent font-black text-indigo-950 outline-none cursor-pointer pr-1"
-        >
-          <option value="All">All Moods ({moodboard.length})</option>
-          {categories.map(cat => {
-            const count = moodboard.filter(m => m.category === cat).length;
-            return (
-              <option key={cat} value={cat}>
-                {cat} ({count})
-              </option>
-            );
-          })}
-        </select>
       </div>
 
       {/* Gallery Masonry / Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredItems.length === 0 ? (
           <div className="col-span-full bg-white rounded-3xl p-12 text-center text-slate-400 text-xs border border-dashed border-slate-200">
-            No moodboard items found in this category. Click "Add Moodboard Idea" to inspire the group!
+            No moodboard items found in this category. Click "Idea" to inspire the group!
           </div>
         ) : (
           filteredItems.map(item => {
@@ -344,7 +355,7 @@ export const MoodboardTab: React.FC = () => {
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-slate-900">
-                {editingItemId ? 'Edit Moodboard Idea' : 'Add Moodboard / Reel Idea'}
+                {editingItemId ? 'Edit Idea' : 'Idea'}
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -402,46 +413,59 @@ export const MoodboardTab: React.FC = () => {
                 </div>
               </div>
 
+              {/* Thumbnail Cover Photo (Optional) - Placed ABOVE Media URL */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Thumbnail Cover Photo (Optional)</label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 inline-flex items-center space-x-1.5 shrink-0 transition">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Upload Foto</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <input
+                      type="url"
+                      value={thumbnailUrl}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setThumbnailUrl(val);
+                        if (!mediaUrl.trim() || mediaType === 'image') {
+                          setMediaUrl(val);
+                        }
+                      }}
+                      placeholder="Atau masukkan URL foto"
+                      className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                    />
+                  </div>
+                  {thumbnailUrl && (
+                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
+                      <img src={thumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setThumbnailUrl('')}
+                        className="absolute top-1 right-1 p-0.5 bg-black/60 text-white rounded-full hover:bg-black/80"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Media URL / Reel Link *</label>
                 <input
-                  type="url"
+                  type="text"
                   value={mediaUrl}
                   onChange={e => setMediaUrl(e.target.value)}
                   placeholder="https://images.unsplash.com/... OR https://www.tiktok.com/..."
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   required
-                />
-              </div>
-
-              {/* Preset Image Chooser */}
-              <div>
-                <span className="block font-semibold text-slate-700 mb-1">Or pick a preset sample photo:</span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {presetImages.map((p, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setMediaUrl(p.url);
-                        setThumbnailUrl(p.url);
-                      }}
-                      className="text-left p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[10px] font-medium hover:bg-amber-50 hover:border-amber-300 truncate"
-                    >
-                      📷 {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Thumbnail Cover Photo (Optional)</label>
-                <input
-                  type="url"
-                  value={thumbnailUrl}
-                  onChange={e => setThumbnailUrl(e.target.value)}
-                  placeholder="Image URL for video cover card"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
                 />
               </div>
 
