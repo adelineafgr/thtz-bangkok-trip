@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import {
   MemberName,
   ALL_MEMBERS,
@@ -38,6 +40,7 @@ interface TripContextType {
   setExchangeRate: (rate: number) => void;
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  isCloudSynced: boolean;
   
   // Data
   prepNotes: PreparationNote[];
@@ -104,6 +107,7 @@ interface TripContextType {
 const TripContext = createContext<TripContextType | undefined>(undefined);
 
 const STORAGE_KEY_PREFIX = 'bkk_trip_2026_';
+const TRIP_DOC_ID = 'bangkok2026';
 
 export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentMember, setCurrentMember] = useState<MemberName>(() => {
@@ -120,6 +124,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
 
   // Persistence State
   const [prepNotes, setPrepNotes] = useState<PreparationNote[]>(() => {
@@ -162,7 +167,81 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : INITIAL_ESSENTIAL_DOCUMENTS;
   });
 
-  // Save changes to localStorage
+  const isUpdatingFromCloud = useRef(false);
+  const isInitialCloudLoadDone = useRef(false);
+
+  // Helper to save data to Firebase Firestore
+  const syncToCloud = async (overrideData?: Record<string, any>) => {
+    try {
+      const tripRef = doc(db, 'trips', TRIP_DOC_ID);
+      const dataToSave = overrideData || {
+        prepNotes,
+        wishlist,
+        moodboard,
+        expenses,
+        contributions,
+        itinerary,
+        accommodations,
+        essentialDocs,
+        exchangeRate,
+        updatedAt: new Date().toISOString()
+      };
+      await setDoc(tripRef, dataToSave, { merge: true });
+      setIsCloudSynced(true);
+    } catch (err) {
+      console.error('Firebase sync error:', err);
+    }
+  };
+
+  // Listen to Cloud Firestore realtime updates
+  useEffect(() => {
+    const tripRef = doc(db, 'trips', TRIP_DOC_ID);
+    const unsubscribe = onSnapshot(tripRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        isUpdatingFromCloud.current = true;
+
+        if (data.prepNotes) setPrepNotes(data.prepNotes);
+        if (data.wishlist) setWishlist(data.wishlist);
+        if (data.moodboard) setMoodboard(data.moodboard);
+        if (data.expenses) setExpenses(data.expenses);
+        if (data.contributions) setContributions(data.contributions);
+        if (data.itinerary) setItinerary(data.itinerary);
+        if (data.accommodations) setAccommodations(data.accommodations);
+        if (data.essentialDocs) setEssentialDocs(data.essentialDocs);
+        if (data.exchangeRate) setExchangeRate(data.exchangeRate);
+
+        setIsCloudSynced(true);
+        isInitialCloudLoadDone.current = true;
+        setTimeout(() => {
+          isUpdatingFromCloud.current = false;
+        }, 300);
+      } else {
+        // Document does not exist yet -> populate with initial data
+        syncToCloud({
+          prepNotes: INITIAL_PREPARATION_NOTES,
+          wishlist: INITIAL_WISHLIST,
+          moodboard: INITIAL_MOODBOARD,
+          expenses: INITIAL_EXPENSES,
+          contributions: DEFAULT_MEMBERS_CONTRIBUTIONS,
+          itinerary: INITIAL_ITINERARY,
+          accommodations: INITIAL_ACCOMMODATION_OPTIONS,
+          essentialDocs: INITIAL_ESSENTIAL_DOCUMENTS,
+          exchangeRate: DEFAULT_EXCHANGE_RATE_IDR_PER_THB,
+          updatedAt: new Date().toISOString()
+        }).then(() => {
+          isInitialCloudLoadDone.current = true;
+        });
+      }
+    }, (error) => {
+      console.warn('Firestore subscription notice:', error);
+      isInitialCloudLoadDone.current = true;
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Save changes to localStorage & Firebase
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}current_member`, currentMember);
   }, [currentMember]);
@@ -173,38 +252,47 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}exchange_rate`, exchangeRate.toString());
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ exchangeRate });
   }, [exchangeRate]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}prep_notes`, JSON.stringify(prepNotes));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ prepNotes });
   }, [prepNotes]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}wishlist`, JSON.stringify(wishlist));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ wishlist });
   }, [wishlist]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}moodboard`, JSON.stringify(moodboard));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ moodboard });
   }, [moodboard]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}expenses`, JSON.stringify(expenses));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ expenses });
   }, [expenses]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}contributions`, JSON.stringify(contributions));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ contributions });
   }, [contributions]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}itinerary`, JSON.stringify(itinerary));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ itinerary });
   }, [itinerary]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}accommodations`, JSON.stringify(accommodations));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ accommodations });
   }, [accommodations]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}essential_docs`, JSON.stringify(essentialDocs));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ essentialDocs });
   }, [essentialDocs]);
 
   // Actions
@@ -431,6 +519,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetToDefault = () => {
+    localStorage.clear();
+
     setPrepNotes(INITIAL_PREPARATION_NOTES);
     setWishlist(INITIAL_WISHLIST);
     setMoodboard(INITIAL_MOODBOARD);
@@ -441,6 +531,19 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setEssentialDocs(INITIAL_ESSENTIAL_DOCUMENTS);
     setExchangeRate(DEFAULT_EXCHANGE_RATE_IDR_PER_THB);
     setCurrency('IDR');
+
+    syncToCloud({
+      prepNotes: INITIAL_PREPARATION_NOTES,
+      wishlist: INITIAL_WISHLIST,
+      moodboard: INITIAL_MOODBOARD,
+      expenses: INITIAL_EXPENSES,
+      contributions: DEFAULT_MEMBERS_CONTRIBUTIONS,
+      itinerary: INITIAL_ITINERARY,
+      accommodations: INITIAL_ACCOMMODATION_OPTIONS,
+      essentialDocs: INITIAL_ESSENTIAL_DOCUMENTS,
+      exchangeRate: DEFAULT_EXCHANGE_RATE_IDR_PER_THB,
+      updatedAt: new Date().toISOString()
+    });
   };
 
   // Helper formatting
@@ -553,6 +656,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setExchangeRate,
         activeTab,
         setActiveTab,
+        isCloudSynced,
         prepNotes,
         wishlist,
         moodboard,
