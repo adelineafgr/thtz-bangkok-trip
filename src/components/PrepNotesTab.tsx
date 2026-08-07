@@ -344,8 +344,14 @@ export const PrepNotesTab: React.FC = () => {
 
       {/* Modal Add Preparation Note */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+        <div
+          onClick={() => setShowAddModal(false)}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100"
+          >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-slate-900">
                 {editingItemId ? 'Edit Preparation Task' : 'Add Preparation Task'}
@@ -362,6 +368,7 @@ export const PrepNotesTab: React.FC = () => {
             </p>
 
             <form onSubmit={handleSaveSubmit} className="space-y-3 text-xs">
+              {/* 1. Title */}
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Agenda / Task Title *</label>
                 <input
@@ -374,32 +381,45 @@ export const PrepNotesTab: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Target Date</label>
-                  <input
-                    type="text"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    placeholder="e.g. 28/10/26"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Status</label>
-                  <select
-                    value={status}
-                    onChange={e => setStatus(e.target.value as NoteStatus)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  >
-                    <option value="Upcoming">Upcoming</option>
-                    <option value="To Schedule">To Schedule</option>
-                    <option value="Done">Done</option>
-                  </select>
-                </div>
+              {/* 2. Date */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Target Date</label>
+                <input
+                  type="text"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  placeholder="e.g. 28/10/26"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
               </div>
 
+              {/* 3. Notes */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Notes / Instructions</label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Details, links, deadline..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 4. Status */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                <select
+                  value={status}
+                  onChange={e => setStatus(e.target.value as NoteStatus)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                >
+                  <option value="Upcoming">Upcoming</option>
+                  <option value="To Schedule">To Schedule</option>
+                  <option value="Done">Done</option>
+                </select>
+              </div>
+
+              {/* Assignee & Category */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Assignee</label>
@@ -428,17 +448,6 @@ export const PrepNotesTab: React.FC = () => {
                     <option value="Meeting">Meeting</option>
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Notes / Instructions</label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Details, links, deadline..."
-                  rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
               </div>
 
               <div className="flex justify-end space-x-2 pt-2">
