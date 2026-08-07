@@ -591,7 +591,7 @@ export const OverviewTab: React.FC = () => {
               className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-full shadow-xs flex items-center space-x-1 transition"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Add Document</span>
+              <span>Document</span>
             </button>
           </div>
 
