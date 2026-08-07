@@ -175,7 +175,7 @@ export const ItineraryTab: React.FC = () => {
     const newDetails = getActivityTimeDetails(fullTimeStr);
 
     if (newDetails.startMins >= newDetails.endMins) {
-      return "Jam selesai harus lebih akhir dari jam mulai.";
+      return "End time must be after start time.";
     }
 
     const dayData = itinerary.find(d => d.dayNumber === dayNum);
@@ -188,7 +188,7 @@ export const ItineraryTab: React.FC = () => {
 
       // Overlap condition: newStart < existEnd AND existStart < newEnd
       if (newDetails.startMins < existDetails.endMins && existDetails.startMins < newDetails.endMins) {
-        return `Jadwal bentrok dengan kegiatan "${act.title}" (${act.time}) pada Day ${dayNum}. Silakan pilih jam lain!`;
+        return `Schedule overlaps with "${act.title}" (${act.time}) on Day ${dayNum}. Please choose a different time!`;
       }
     }
 
@@ -283,12 +283,9 @@ export const ItineraryTab: React.FC = () => {
           <div className="flex items-center space-x-2">
             <CalendarIcon className="w-4 h-4 text-indigo-600" />
             <span className="font-extrabold text-indigo-950 text-xs sm:text-sm">
-              Bangkok Trip Schedule (Google Calendar View)
+              Bangkok Itinerary
             </span>
           </div>
-          <span className="text-[11px] font-bold text-indigo-600 bg-white/80 px-2.5 py-1 rounded-xl border border-indigo-100">
-            August 2026
-          </span>
         </div>
 
         {/* Scrollable Grid Container */}
@@ -301,7 +298,7 @@ export const ItineraryTab: React.FC = () => {
                 
                 {/* TOP-LEFT CORNER: STICKY TOP-0 & LEFT-0 */}
                 <th className="py-3 px-3 w-20 text-center border-r border-b border-indigo-950 bg-indigo-950 text-amber-300 font-black uppercase text-xs tracking-wider whitespace-nowrap sticky top-0 left-0 z-40 shadow-sm select-none">
-                  GMT+07
+                  TIME
                 </th>
 
                 {/* DAY COLUMNS STICKY TOP */}
@@ -347,21 +344,25 @@ export const ItineraryTab: React.FC = () => {
                       return (
                         <td
                           key={day.dayNumber}
-                          className="border-r border-b border-indigo-100/80 p-0 align-top h-[80px] min-w-[150px] relative hover:bg-indigo-50/30 transition cursor-pointer group/cell"
-                          onClick={() => openAddModal(day.dayNumber, slotHourStr)}
+                          className={`border-r border-b border-indigo-100/80 p-0 align-top h-[80px] min-w-[150px] relative transition group/cell ${
+                            cellActivities.length === 0 ? 'hover:bg-indigo-50/30 cursor-pointer' : ''
+                          }`}
+                          onClick={() => cellActivities.length === 0 && openAddModal(day.dayNumber, slotHourStr)}
                         >
-                          {/* Hover Quick Add Plus Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openAddModal(day.dayNumber, slotHourStr);
-                            }}
-                            className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-1 bg-indigo-600 text-white rounded-full shadow-xs hover:scale-110 transition z-30"
-                            title="Tambah aktivitas di jam ini"
-                          >
-                            <Plus className="w-3 h-3 stroke-[3]" />
-                          </button>
+                          {/* Hover Quick Add Plus Button - Only if slot is empty */}
+                          {cellActivities.length === 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openAddModal(day.dayNumber, slotHourStr);
+                              }}
+                              className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 p-1 bg-indigo-600 text-white rounded-full shadow-xs hover:scale-110 transition z-30"
+                              title="Tambah aktivitas di jam ini"
+                            >
+                              <Plus className="w-3 h-3 stroke-[3]" />
+                            </button>
+                          )}
 
                           {/* Render Activities */}
                           {cellActivities.map((act, idx) => {
@@ -398,13 +399,6 @@ export const ItineraryTab: React.FC = () => {
                                 }`}
                               >
                                 <div>
-                                  {/* Top Row: Time */}
-                                  <div className="flex items-center justify-between text-[10px] font-bold mb-0.5 gap-1">
-                                    <span className="font-mono text-slate-700 bg-white/80 px-1.5 py-0.2 rounded border border-black/5 truncate">
-                                      {act.time}
-                                    </span>
-                                  </div>
-
                                   {/* Title */}
                                   <div className="font-extrabold text-[11px] leading-snug line-clamp-3">
                                     {act.title}
@@ -445,10 +439,10 @@ export const ItineraryTab: React.FC = () => {
       {/* CREATE / EDIT ACTIVITY MODAL */}
       {showActivityModal && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-indigo-100 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-indigo-100 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-              <h3 className="text-lg font-black text-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+              <h3 className="text-base sm:text-lg font-black text-slate-900">
                 {editingActivityId ? 'Edit Activity' : 'Add Activity'}
               </h3>
               <button
@@ -460,27 +454,26 @@ export const ItineraryTab: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleSaveActivity} className="space-y-4">
+            <form onSubmit={handleSaveActivity} className="space-y-3">
               
               {/* Conflict Error Alert */}
               {formError && (
-                <div className="p-3 bg-amber-50 border border-amber-300 rounded-2xl flex items-start space-x-2.5 text-amber-900 text-xs font-semibold animate-in fade-in duration-150">
+                <div className="p-2.5 bg-amber-50 border border-amber-300 rounded-2xl flex items-start space-x-2 text-amber-900 text-xs font-semibold animate-in fade-in duration-150">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <span className="flex-1 leading-snug">{formError}</span>
                 </div>
               )}
 
-              {/* Day & Time Fields styled cleanly */}
+              {/* Date & Time Field */}
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1.5">
-                  Hari & Waktu *
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Date & Time *
                 </label>
-                <div className="flex flex-wrap items-center gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-200/70">
-                  {/* Day Box */}
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80">
                   <select
                     value={selectedFormDayNum}
                     onChange={(e) => setSelectedFormDayNum(Number(e.target.value))}
-                    className="flex-1 min-w-[160px] bg-[#e5e9f0] hover:bg-[#dbe0ea] text-slate-900 text-xs sm:text-sm font-semibold rounded-xl px-3.5 py-2.5 outline-none border-0 cursor-pointer transition shadow-2xs"
+                    className="flex-1 min-w-[130px] bg-white text-slate-900 text-xs font-bold rounded-xl px-2.5 py-2 outline-none border border-slate-200 cursor-pointer shadow-2xs"
                   >
                     {itinerary.map(d => (
                       <option key={d.dayNumber} value={d.dayNumber}>
@@ -488,40 +481,36 @@ export const ItineraryTab: React.FC = () => {
                       </option>
                     ))}
                   </select>
-
-                  {/* Start Time Box */}
-                  <input
-                    type="text"
-                    required
-                    placeholder="08:00"
-                    value={time}
-                    onChange={(e) => setTime(e.target.value)}
-                    className="w-24 sm:w-28 bg-[#e5e9f0] hover:bg-[#dbe0ea] text-slate-900 text-xs sm:text-sm font-semibold text-center rounded-xl px-3 py-2.5 outline-none border-0 transition shadow-2xs font-mono"
-                  />
-
-                  {/* Dash */}
-                  <span className="text-slate-500 font-bold text-sm sm:text-base px-0.5">–</span>
-
-                  {/* End Time Box */}
-                  <input
-                    type="text"
-                    placeholder="11:00"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="w-24 sm:w-28 bg-[#e5e9f0] hover:bg-[#dbe0ea] text-slate-900 text-xs sm:text-sm font-semibold text-center rounded-xl px-3 py-2.5 outline-none border-0 transition shadow-2xs font-mono"
-                  />
+                  <div className="flex items-center space-x-1 shrink-0">
+                    <input
+                      type="text"
+                      required
+                      placeholder="08:00"
+                      value={time}
+                      onChange={(e) => setTime(e.target.value)}
+                      className="w-16 sm:w-20 bg-white text-slate-900 text-xs font-bold text-center rounded-xl py-2 outline-none border border-slate-200 font-mono shadow-2xs"
+                    />
+                    <span className="text-slate-400 font-bold text-xs shrink-0">–</span>
+                    <input
+                      type="text"
+                      placeholder="11:00"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="w-16 sm:w-20 bg-white text-slate-900 text-xs font-bold text-center rounded-xl py-2 outline-none border border-slate-200 font-mono shadow-2xs"
+                    />
+                  </div>
                 </div>
               </div>
 
               {/* Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Judul Kegiatan *
+                  Activity Title *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Contoh: Makan Siang di Jay Fai / Chatuchak Market"
+                  placeholder="e.g. Lunch at Jay Fai / Chatuchak Market"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -531,7 +520,7 @@ export const ItineraryTab: React.FC = () => {
               {/* Category */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Kategori
+                  Category
                 </label>
                 <select
                   value={category}
@@ -548,14 +537,14 @@ export const ItineraryTab: React.FC = () => {
               </div>
 
               {/* Location & Maps */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Nama Lokasi
+                    Location Name
                   </label>
                   <input
                     type="text"
-                    placeholder="Grand Palace / Iconsiam"
+                    placeholder="e.g. Grand Palace / Iconsiam"
                     value={locationName}
                     onChange={(e) => setLocationName(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -592,11 +581,11 @@ export const ItineraryTab: React.FC = () => {
               {/* Description */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Catatan Tambahan
+                  Additional Notes
                 </label>
                 <textarea
                   rows={2}
-                  placeholder="Instruksi jalan, dresscode, tiket, atau menu yang disarankan..."
+                  placeholder="Directions, dress code, tickets, or recommended menu..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
@@ -604,19 +593,19 @@ export const ItineraryTab: React.FC = () => {
               </div>
 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end space-x-2 pt-2.5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowActivityModal(false)}
                   className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition"
                 >
-                  {editingActivityId ? 'Simpan Perubahan' : 'Add Activity'}
+                  {editingActivityId ? 'Save Changes' : 'Add Activity'}
                 </button>
               </div>
 
