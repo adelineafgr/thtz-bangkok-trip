@@ -17,12 +17,10 @@ import {
   X,
   LayoutGrid,
   Table,
-  FileText,
   Copy,
   Download,
   CheckCircle2,
-  Sparkles,
-  Trophy
+  Filter
 } from 'lucide-react';
 
 export const WishlistTab: React.FC = () => {
@@ -37,6 +35,7 @@ export const WishlistTab: React.FC = () => {
   } = useTrip();
 
   const [selectedCategory, setSelectedCategory] = useState<WishlistCategory | 'All'>('All');
+  const [minVotesFilter, setMinVotesFilter] = useState<number | 'all'>('all');
   const [viewMode, setViewMode] = useState<'card' | 'table'>('card');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -51,14 +50,27 @@ export const WishlistTab: React.FC = () => {
   const [proposedBy, setProposedBy] = useState<MemberName>(currentMember);
 
   const categories: WishlistCategory[] = ['Shopping', 'Photo Spot', 'Activity', 'Café', 'Dining'];
+  const voteFilterOptions: { label: string; value: number | 'all' }[] = [
+    { label: 'All Votes', value: 'all' },
+    { label: '1+ Vote', value: 1 },
+    { label: '2+ Votes', value: 2 },
+    { label: '3+ Votes', value: 3 },
+    { label: '4+ Votes', value: 4 },
+    { label: '5 Votes', value: 5 }
+  ];
 
+  // Filter logic
   const filteredWishlist = wishlist.filter(item => {
     if (selectedCategory !== 'All' && item.category !== selectedCategory) return false;
+    
+    const voteCount = (item.votes || []).length;
+    if (minVotesFilter !== 'all') {
+      if (voteCount < minVotesFilter) return false;
+    }
+    
     return true;
   });
 
-  // Top voted items (> 3 votes)
-  const highVotedItems = wishlist.filter(item => (item.votes || []).length > 3);
   const sortedWishlist = [...filteredWishlist].sort((a, b) => (b.votes || []).length - (a.votes || []).length);
 
   const openAddModal = () => {
@@ -117,47 +129,46 @@ export const WishlistTab: React.FC = () => {
     setShowAddModal(false);
   };
 
-  // Generate TXT prompt for AI itinerary
-  const generateAIPromptTXT = () => {
-    const itemsToExport = highVotedItems.length > 0 ? highVotedItems : sortedWishlist;
-    
-    let txt = `=== BANGKOK TRIP 2026 - TOP VOTED BUCKET LIST ITEMS FOR ITINERARY ===\n`;
-    txt += `Generated on: ${new Date().toLocaleDateString('id-ID')}\n`;
-    txt += `Total Approved Spots (>3 votes): ${highVotedItems.length} items\n\n`;
-    txt += `LIST OF PLACES & ACTIVITIES:\n`;
+  // Plain TXT export of place list
+  const generatePlaceListTXT = () => {
+    let txt = `BANGKOK TRIP 2026 - BUCKETLIST PLACES\n`;
+    txt += `Category: ${selectedCategory} | Vote Filter: ${minVotesFilter === 'all' ? 'All Votes' : `${minVotesFilter}+ Votes`}\n`;
+    txt += `Total Places: ${sortedWishlist.length}\n`;
+    txt += `=========================================\n\n`;
 
-    itemsToExport.forEach((item, index) => {
-      const voteCount = (item.votes || []).length;
-      const voters = (item.votes || []).join(', ');
-      txt += `${index + 1}. ${item.title}\n`;
-      txt += `   - Category: ${item.category}\n`;
-      txt += `   - Location/Area: ${item.location || 'Bangkok'}\n`;
-      txt += `   - Votes (${voteCount}): ${voters || 'None'}\n`;
-      txt += `   - Proposed by: ${item.proposedBy}\n`;
-      if (item.estimatedPriceTHB) txt += `   - Est. Expense: ฿${item.estimatedPriceTHB}\n`;
-      if (item.notes) txt += `   - Notes: ${item.notes}\n`;
-      txt += `\n`;
-    });
-
-    txt += `--- PROMPT FOR AI ITINERARY GENERATOR ---\n`;
-    txt += `"Tolong buatkan jadwal r itinerary Bangkok 5 hari 4 malam berdasarkan daftar tempat yang sudah divote terbanyak (>3 vote) di atas. Kelompokkan tempat berdasarkan area lokasi yang berdekatan agar rute perjalanan efisien."\n`;
+    if (sortedWishlist.length === 0) {
+      txt += `No bucketlist places found for current filters.\n`;
+    } else {
+      sortedWishlist.forEach((item, index) => {
+        const voteCount = (item.votes || []).length;
+        const voters = (item.votes || []).join(', ');
+        txt += `${index + 1}. ${item.title}\n`;
+        txt += `   Category: ${item.category}\n`;
+        if (item.location) txt += `   Location: ${item.location}\n`;
+        txt += `   Votes (${voteCount}): ${voters || 'None'}\n`;
+        txt += `   Proposed By: ${item.proposedBy || 'Unknown'}\n`;
+        if (item.estimatedPriceTHB !== undefined) txt += `   Est. Price: ฿${item.estimatedPriceTHB}\n`;
+        if (item.notes) txt += `   Notes: ${item.notes}\n`;
+        txt += `\n`;
+      });
+    }
 
     return txt;
   };
 
   const handleCopyTXT = () => {
-    const text = generateAIPromptTXT();
+    const text = generatePlaceListTXT();
     navigator.clipboard.writeText(text);
     setCopiedText(true);
     setTimeout(() => setCopiedText(false), 2500);
   };
 
   const handleDownloadTXT = () => {
-    const text = generateAIPromptTXT();
+    const text = generatePlaceListTXT();
     const element = document.createElement("a");
-    const file = new Blob([text], {type: 'text/plain'});
+    const file = new Blob([text], { type: 'text/plain;charset=utf-8' });
     element.href = URL.createObjectURL(file);
-    element.download = `bangkok_itinerary_bucketlist_export.txt`;
+    element.download = `bangkok_bucketlist.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -184,7 +195,7 @@ export const WishlistTab: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-5 pb-20">
       
       {/* Header */}
       <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
@@ -192,169 +203,148 @@ export const WishlistTab: React.FC = () => {
           <div>
             <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
               <Heart className="w-4 h-4 fill-rose-500 text-rose-500" />
-              <span>Activity & Place Wishlist</span>
+              <span>Bangkok Trip 2026</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-              Group Bucket List
+              Bucketlist Places
             </h2>
             <p className="text-xs text-indigo-400 font-medium">
-              Shopping spots, aesthetic cafes, photo spots & food markets requested by friends.
+              Explore and vote on places, cafes, photo spots, and shopping locations suggested by friends.
             </p>
           </div>
 
-          {/* View Mode Switcher */}
-          <div className="flex items-center bg-indigo-50/80 p-1 rounded-2xl border border-indigo-100">
-            <button
-              onClick={() => setViewMode('card')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition ${
-                viewMode === 'card'
-                  ? 'bg-white text-indigo-950 shadow-2xs'
-                  : 'text-indigo-400 hover:text-indigo-900'
-              }`}
-            >
-              <LayoutGrid className="w-3.5 h-3.5" />
-              <span>Card View</span>
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition ${
-                viewMode === 'table'
-                  ? 'bg-white text-indigo-950 shadow-2xs'
-                  : 'text-indigo-400 hover:text-indigo-900'
-              }`}
-            >
-              <Table className="w-3.5 h-3.5" />
-              <span>Table View</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Vote Recap Section (Requirement 6) */}
-      <div className="bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 rounded-3xl p-0.5 shadow-md">
-        <div className="bg-white rounded-[23px] p-4 sm:p-5 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div className="flex items-center space-x-2">
-              <div className="p-2 bg-amber-100 text-amber-800 rounded-xl">
-                <Trophy className="w-5 h-5 text-amber-600" />
-              </div>
-              <div>
-                <h3 className="text-sm font-black text-indigo-950 flex items-center gap-1.5">
-                  <span>Rekap Hasil Vote Bucket List</span>
-                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 text-[10px]">
-                    {highVotedItems.length} Approved (&gt;3 Votes)
-                  </span>
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Tempat dengan lebih dari 3 vote otomatis disetujui untuk dimasukkan ke Itinerary AI.
-                </p>
-              </div>
-            </div>
-
-            {/* Export Buttons (Requirement 5) */}
-            <div className="flex items-center space-x-2">
+          {/* View Mode Controls */}
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center bg-indigo-50/80 p-1 rounded-2xl border border-indigo-100">
               <button
-                onClick={handleCopyTXT}
-                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-black rounded-xl border border-indigo-200 transition flex items-center space-x-1.5"
+                onClick={() => setViewMode('card')}
+                className={`p-1.5 rounded-xl text-xs font-bold transition ${
+                  viewMode === 'card'
+                    ? 'bg-white text-indigo-950 shadow-2xs'
+                    : 'text-indigo-400 hover:text-indigo-900'
+                }`}
+                title="Card View"
               >
-                {copiedText ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700">Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Copy TXT AI Prompt</span>
-                  </>
-                )}
+                <LayoutGrid className="w-4 h-4" />
               </button>
-
               <button
-                onClick={handleDownloadTXT}
-                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-xl shadow-xs transition flex items-center space-x-1.5"
+                onClick={() => setViewMode('table')}
+                className={`p-1.5 rounded-xl text-xs font-bold transition ${
+                  viewMode === 'table'
+                    ? 'bg-white text-indigo-950 shadow-2xs'
+                    : 'text-indigo-400 hover:text-indigo-900'
+                }`}
+                title="Table View"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export TXT File</span>
+                <Table className="w-4 h-4" />
               </button>
             </div>
           </div>
+        </div>
+      </div>
 
-          {/* Top Voted Highlights */}
-          <div className="flex flex-wrap gap-2 text-xs">
-            {highVotedItems.length === 0 ? (
-              <span className="text-slate-400 text-xs italic">
-                Belum ada spot yang meraih &gt;3 vote. Vote item favorit kalian sekarang!
-              </span>
-            ) : (
-              highVotedItems.map(item => (
-                <div
-                  key={item.id}
-                  className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200/80 text-indigo-950 font-bold flex items-center space-x-2"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>{item.title}</span>
-                  <span className="px-1.5 py-0.2 bg-rose-500 text-white text-[10px] rounded-md font-black">
-                    {(item.votes || []).length} Votes
-                  </span>
-                </div>
-              ))
-            )}
+      {/* Simplified Filters & Actions Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-indigo-100/80 shadow-2xs space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          
+          {/* Filters: Category & Vote Count Dropdowns */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Category Dropdown */}
+            <div className="flex items-center space-x-2">
+              <Tag className="w-4 h-4 text-indigo-500 shrink-0" />
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value as any)}
+                className="bg-indigo-50/80 px-3 py-1.5 rounded-xl border border-indigo-100 font-bold text-xs text-indigo-950 outline-none cursor-pointer"
+              >
+                <option value="All">All Categories ({wishlist.length})</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>
+                    {cat} ({wishlist.filter(w => w.category === cat).length})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Vote Count Dropdown */}
+            <div className="flex items-center space-x-2">
+              <Filter className="w-4 h-4 text-rose-500 shrink-0" />
+              <select
+                value={minVotesFilter}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setMinVotesFilter(val === 'all' ? 'all' : Number(val));
+                }}
+                className="bg-rose-50/80 px-3 py-1.5 rounded-xl border border-rose-100 font-bold text-xs text-rose-950 outline-none cursor-pointer"
+              >
+                <option value="all">All Votes</option>
+                <option value="1">1+ Vote</option>
+                <option value="2">2+ Votes</option>
+                <option value="3">3+ Votes</option>
+                <option value="4">4+ Votes</option>
+                <option value="5">5 Votes</option>
+              </select>
+            </div>
           </div>
+
+          {/* Action Buttons: Copy TXT, Export TXT & Add Place */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleCopyTXT}
+              className="px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 text-xs font-bold rounded-xl border border-indigo-200 transition flex items-center space-x-1.5"
+            >
+              {copiedText ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-700">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Copy TXT</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleDownloadTXT}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition flex items-center space-x-1.5"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export TXT</span>
+            </button>
+
+            <button
+              onClick={openAddModal}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center space-x-1.5 transition"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <span>Add Place</span>
+            </button>
+          </div>
+
         </div>
       </div>
 
-      {/* Categories Filter Bar & Add Button */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {/* Category Dropdown */}
-        <div className="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-2xl border border-indigo-100/90 shadow-2xs text-xs">
-          <Tag className="w-4 h-4 text-indigo-500 shrink-0" />
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value as any)}
-            className="bg-transparent font-extrabold text-indigo-950 outline-none cursor-pointer pr-1"
-          >
-            <option value="All">All Categories ({wishlist.length})</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>
-                {cat} ({wishlist.filter(w => w.category === cat).length})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Add Bucketlist Button */}
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>bucketlist</span>
-        </button>
-      </div>
-
-      {/* MAIN VIEW: Card View vs Table View */}
+      {/* Main List Display: Card View or Table View */}
       {viewMode === 'card' ? (
-        /* CARD VIEW */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredWishlist.length === 0 ? (
+          {sortedWishlist.length === 0 ? (
             <div className="col-span-full bg-white rounded-3xl p-12 text-center text-slate-400 text-xs border border-dashed border-slate-200">
-              No wishlist items found. Click "bucketlist" to add your favorite spot!
+              No bucketlist places found with current filters. Click "Add Place" to suggest one!
             </div>
           ) : (
-            filteredWishlist.map(item => {
+            sortedWishlist.map(item => {
               const voteCount = (item.votes || []).length;
-              const isApproved = voteCount > 3;
+              const hasVoted = (item.votes || []).includes(currentMember);
 
               return (
                 <div
                   key={item.id}
-                  className={`bg-white rounded-2xl p-4 border transition flex flex-col justify-between shadow-2xs ${
-                    isApproved ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-slate-200 hover:border-amber-300'
-                  }`}
+                  className="bg-white rounded-2xl p-4 border border-slate-200/90 hover:border-indigo-200 transition flex flex-col justify-between shadow-2xs"
                 >
                   <div>
-                    {/* Category & Status Badge */}
+                    {/* Category Badge & Top Votes indicator */}
                     <div className="flex items-center justify-between gap-2 mb-2">
                       <span
                         className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold border ${getCategoryBadgeClass(
@@ -365,10 +355,9 @@ export const WishlistTab: React.FC = () => {
                         <span>{item.category}</span>
                       </span>
 
-                      {isApproved && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Pass to AI</span>
+                      {voteCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
+                          {voteCount} {voteCount === 1 ? 'Vote' : 'Votes'}
                         </span>
                       )}
                     </div>
@@ -391,19 +380,17 @@ export const WishlistTab: React.FC = () => {
                       </div>
                     )}
 
-                    {/* Votes Row */}
-                    <div className="pt-2.5 pb-2 border-t border-slate-100 flex items-center justify-between text-xs my-2">
+                    {/* Votes List */}
+                    <div className="pt-2 pb-2 border-t border-slate-100 flex items-center justify-between text-xs my-1">
                       <div className="flex flex-wrap items-center gap-1">
-                        <span className="text-[10px] text-indigo-400 font-bold mr-0.5">
-                          Votes ({voteCount}):
-                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium mr-0.5">Voters:</span>
                         {voteCount === 0 ? (
                           <span className="text-[10px] text-slate-300 italic">No votes yet</span>
                         ) : (
                           (item.votes || []).map(v => (
                             <span
                               key={v}
-                              className="px-1.5 py-0.5 bg-rose-100 text-rose-700 text-[9px] font-black rounded-md"
+                              className="px-1.5 py-0.5 bg-rose-100 text-rose-800 text-[9px] font-bold rounded"
                             >
                               {v}
                             </span>
@@ -414,21 +401,21 @@ export const WishlistTab: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => voteWishlist(item.id, currentMember)}
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold flex items-center space-x-1 transition shrink-0 ${
-                          (item.votes || []).includes(currentMember)
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1 transition shrink-0 ${
+                          hasVoted
                             ? 'bg-rose-500 text-white shadow-xs'
-                            : 'bg-indigo-50 text-indigo-800 hover:bg-rose-100 border border-indigo-100'
+                            : 'bg-indigo-50 text-indigo-900 hover:bg-rose-100 border border-indigo-100'
                         }`}
                       >
                         <ThumbsUp className="w-3 h-3" />
-                        <span>{(item.votes || []).includes(currentMember) ? 'Voted' : 'Vote'}</span>
+                        <span>{hasVoted ? 'Voted' : 'Vote'}</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Footer Info & Actions */}
                   <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <div className="flex items-center space-x-1.5">
+                    <div className="flex items-center space-x-1">
                       <span className="text-[10px] text-slate-400">By:</span>
                       <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[10px]">
                         {item.proposedBy}
@@ -437,7 +424,7 @@ export const WishlistTab: React.FC = () => {
 
                     <div className="flex items-center space-x-2">
                       {item.estimatedPriceTHB !== undefined && (
-                        <span className="font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
+                        <span className="font-bold text-slate-900 bg-slate-100 px-2 py-0.5 rounded-lg border border-slate-200">
                           {formatCurrency(item.estimatedPriceTHB)}
                         </span>
                       )}
@@ -466,102 +453,77 @@ export const WishlistTab: React.FC = () => {
           )}
         </div>
       ) : (
-        /* TABLE VIEW (Requirement 4 & 5) */
-        <div className="bg-white rounded-3xl border border-indigo-100/80 shadow-sm overflow-hidden">
-          <div className="p-4 border-b border-indigo-100 bg-indigo-50/40 flex items-center justify-between">
-            <h3 className="text-sm font-black text-indigo-950 flex items-center space-x-2">
-              <Table className="w-4 h-4 text-indigo-600" />
-              <span>Bucket List Data Table (&gt;3 Votes Auto-Qualified for Export)</span>
-            </h3>
-            <span className="text-xs text-indigo-400 font-bold">
-              Showing {filteredWishlist.length} Items
-            </span>
-          </div>
-
+        /* Table View */
+        <div className="bg-white rounded-2xl border border-indigo-100/80 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-indigo-50/60 border-b border-indigo-100 text-indigo-400 uppercase tracking-wider font-extrabold">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-bold">
                 <tr>
-                  <th className="py-3 px-4">#</th>
-                  <th className="py-3 px-4">Place / Activity</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">Location</th>
-                  <th className="py-3 px-4">Proposed By</th>
-                  <th className="py-3 px-4">Votes</th>
-                  <th className="py-3 px-4">Est. Price</th>
-                  <th className="py-3 px-4">AI Export Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4">#</th>
+                  <th className="py-3.5 px-4">Place Name</th>
+                  <th className="py-3.5 px-4">Category</th>
+                  <th className="py-3.5 px-4">Location</th>
+                  <th className="py-3.5 px-4">Proposed By</th>
+                  <th className="py-3.5 px-4">Votes</th>
+                  <th className="py-3.5 px-4">Est. Price</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-indigo-50 font-bold">
+              <tbody className="divide-y divide-slate-100 font-medium">
                 {sortedWishlist.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-indigo-300 italic">
-                      No bucket list items found.
+                    <td colSpan={8} className="py-8 text-center text-slate-400 italic">
+                      No bucketlist places found with current filters.
                     </td>
                   </tr>
                 ) : (
                   sortedWishlist.map((item, idx) => {
                     const voteCount = (item.votes || []).length;
-                    const isQualified = voteCount > 3;
+                    const hasVoted = (item.votes || []).includes(currentMember);
 
                     return (
-                      <tr key={item.id} className={`hover:bg-indigo-50/30 transition ${isQualified ? 'bg-amber-50/30' : ''}`}>
-                        <td className="py-3.5 px-4 font-mono text-indigo-400">{idx + 1}</td>
-                        <td className="py-3.5 px-4 font-black text-indigo-950">
+                      <tr key={item.id} className="hover:bg-slate-50/60 transition">
+                        <td className="py-3.5 px-4 font-mono text-slate-400">{idx + 1}</td>
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
                           {item.title}
                           {item.notes && (
-                            <span className="block text-[10px] text-indigo-400 font-normal">
+                            <span className="block text-[10px] text-slate-400 font-normal">
                               {item.notes}
                             </span>
                           )}
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] border font-bold ${getCategoryBadgeClass(item.category)}`}>
+                          <span className={`px-2.5 py-0.5 rounded-md text-[10px] border font-bold ${getCategoryBadgeClass(item.category)}`}>
                             {item.category}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-indigo-600 font-medium">
+                        <td className="py-3.5 px-4 text-slate-600">
                           {item.location || '-'}
                         </td>
                         <td className="py-3.5 px-4">
-                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px]">
+                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold">
                             {item.proposedBy}
                           </span>
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="flex items-center space-x-2">
-                            <span className="font-black text-indigo-950">{voteCount} Votes</span>
+                            <span className="font-bold text-slate-900">{voteCount} Votes</span>
                             <button
                               type="button"
                               onClick={() => voteWishlist(item.id, currentMember)}
-                              className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold ${
-                                (item.votes || []).includes(currentMember)
-                                  ? 'bg-rose-500 text-white'
-                                  : 'bg-indigo-50 text-indigo-800 hover:bg-rose-100'
+                              className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                hasVoted ? 'bg-rose-500 text-white' : 'bg-slate-100 text-slate-700 hover:bg-rose-100'
                               }`}
                             >
-                              {(item.votes || []).includes(currentMember) ? 'Voted' : 'Vote'}
+                              {hasVoted ? 'Voted' : 'Vote'}
                             </button>
                           </div>
-                          <div className="text-[9px] text-indigo-300 mt-0.5">
+                          <div className="text-[9px] text-slate-400 mt-0.5">
                             {(item.votes || []).join(', ')}
                           </div>
                         </td>
-                        <td className="py-3.5 px-4 font-mono text-indigo-900">
+                        <td className="py-3.5 px-4 font-mono text-slate-900">
                           {item.estimatedPriceTHB !== undefined ? `฿${item.estimatedPriceTHB}` : '-'}
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {isQualified ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                              <span>Export Ready (&gt;3 Votes)</span>
-                            </span>
-                          ) : (
-                            <span className="text-[10px] text-slate-400 font-normal">
-                              Need {4 - voteCount} more votes
-                            </span>
-                          )}
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end space-x-1">
@@ -589,7 +551,7 @@ export const WishlistTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Add/Edit Wishlist Item */}
+      {/* Modal Add/Edit Bucketlist Item - Click outside to close */}
       {showAddModal && (
         <div
           onClick={() => setShowAddModal(false)}
@@ -597,11 +559,11 @@ export const WishlistTab: React.FC = () => {
         >
           <div
             onClick={e => e.stopPropagation()}
-            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100"
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-slate-900">
-                {editingItemId ? 'Edit Bucket List' : 'bucketlist'}
+            <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900">
+                {editingItemId ? 'Edit Place Item' : 'Add Bucketlist Place'}
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -610,9 +572,6 @@ export const WishlistTab: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Add a shop, cafe, or attraction you want to visit in Bangkok.
-            </p>
 
             <form onSubmit={handleSaveSubmit} className="space-y-3 text-xs">
               <div>
@@ -622,7 +581,7 @@ export const WishlistTab: React.FC = () => {
                   value={title}
                   onChange={e => setTitle(e.target.value)}
                   placeholder="e.g. Wallflowers Cafe / Chatuchak Market"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   required
                 />
               </div>
@@ -633,7 +592,7 @@ export const WishlistTab: React.FC = () => {
                   <select
                     value={category}
                     onChange={e => setCategory(e.target.value as WishlistCategory)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
                   >
                     <option value="Shopping">Shopping</option>
                     <option value="Photo Spot">Photo Spot</option>
@@ -648,7 +607,7 @@ export const WishlistTab: React.FC = () => {
                   <select
                     value={proposedBy}
                     onChange={e => setProposedBy(e.target.value as MemberName)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-white"
                   >
                     {ALL_MEMBERS.map(m => (
                       <option key={m} value={m}>{m}</option>
@@ -664,7 +623,7 @@ export const WishlistTab: React.FC = () => {
                   value={estimatedPriceTHB}
                   onChange={e => setEstimatedPriceTHB(e.target.value)}
                   placeholder="e.g. 500"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </div>
 
@@ -675,7 +634,7 @@ export const WishlistTab: React.FC = () => {
                   value={location}
                   onChange={e => setLocation(e.target.value)}
                   placeholder="e.g. Siam Square / Songwat Road"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </div>
 
@@ -686,7 +645,7 @@ export const WishlistTab: React.FC = () => {
                   onChange={e => setNotes(e.target.value)}
                   placeholder="What to buy, best photo spot, food to try..."
                   rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
               </div>
 
@@ -702,7 +661,7 @@ export const WishlistTab: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
                 >
-                  Save
+                  Save Place
                 </button>
               </div>
             </form>
