@@ -215,8 +215,8 @@ export const ItineraryTab: React.FC = () => {
               <tr className="bg-indigo-900 text-white font-black text-[11px] tracking-tight">
                 
                 {/* TOP-LEFT CORNER: STICKY TOP-0 & LEFT-0 */}
-                <th className="py-3 px-3 w-20 text-center border-r border-b border-indigo-950 bg-indigo-950 text-amber-300 font-extrabold uppercase text-[10px] tracking-wider whitespace-nowrap sticky top-0 left-0 z-40 shadow-sm select-none">
-                  WIB / BKK
+                <th className="py-3 px-3 w-15 text-center border-r border-b border-indigo-950 bg-indigo-950 text-amber-300 font-extrabold uppercase text-[10px] tracking-wider whitespace-nowrap sticky top-0 left-0 z-40 shadow-sm select-none">
+                  TIME
                   <div className="text-[9px] text-indigo-300 font-normal capitalize">Jam</div>
                 </th>
 
