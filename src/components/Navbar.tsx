@@ -74,7 +74,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="min-w-0">
               <div className="flex items-center space-x-2">
                 <h1 className="text-base sm:text-xl font-black text-indigo-950 tracking-tight leading-none truncate">
-                  Bangkok Blitz '26
+                  THTZ to BKK '26
                 </h1>
               </div>
             </div>
