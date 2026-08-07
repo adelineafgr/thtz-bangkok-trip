@@ -122,7 +122,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <div className="fixed inset-0 z-40" onClick={() => setShowMemberDropdown(false)} />
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-indigo-100 py-1.5 z-50 animate-in fade-in zoom-in-95">
                     <div className="px-3 py-1.5 text-[10px] font-black text-indigo-400 uppercase tracking-widest">
-                      Viewing & Posting as:
+                     Login as
                     </div>
                     {ALL_MEMBERS.map(m => (
                       <button
