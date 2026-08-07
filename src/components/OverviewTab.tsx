@@ -485,8 +485,14 @@ export const OverviewTab: React.FC = () => {
 
       {/* Detail Accommodation Modal */}
       {showDetailAccModal && detailAcc && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto space-y-4">
+        <div
+          onClick={() => setShowDetailAccModal(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto space-y-4"
+          >
             
             <div className="flex items-start justify-between pb-2 border-b border-indigo-100">
               <div>
@@ -868,8 +874,14 @@ export const OverviewTab: React.FC = () => {
 
       {/* Accommodation Modal (Add / Edit) */}
       {showAccModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto">
+        <div
+          onClick={() => setShowAccModal(false)}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <Building className="w-5 h-5 text-indigo-600" />
@@ -1031,8 +1043,14 @@ export const OverviewTab: React.FC = () => {
 
       {/* Essential Document Add/Edit Modal */}
       {showDocModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto">
+        <div
+          onClick={() => setShowDocModal(false)}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-indigo-100 mb-4">
               <h3 className="text-lg font-black text-indigo-950 flex items-center space-x-2">
                 <FileCheck className="w-5 h-5 text-indigo-600" />
