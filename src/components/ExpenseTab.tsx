@@ -4,33 +4,30 @@ import { ExpenseCategory, MemberName, ALL_MEMBERS } from '../types';
 import {
   Wallet,
   TrendingDown,
-  TrendingUp,
-  CreditCard,
   Plus,
-  ArrowRightLeft,
-  Users,
-  Sparkles,
   Trash2,
-  DollarSign,
-  PieChart,
-  HelpCircle,
-  Receipt
+  Receipt,
+  PiggyBank,
+  X,
+  PlusCircle,
+  Calendar,
+  FileText
 } from 'lucide-react';
 
 export const ExpenseTab: React.FC = () => {
   const {
     expenses,
-    contributions,
+    kasDeposits,
     addExpense,
     deleteExpense,
-    updateContribution,
+    addKasDeposit,
+    deleteKasDeposit,
     getKasSummary,
     getMemberSettlements,
     getSettlementInstructions,
     formatCurrency,
     exchangeRate,
-    currency,
-    currentMember
+    currency
   } = useTrip();
 
   const [showAddModal, setShowAddModal] = useState(false);
@@ -42,19 +39,16 @@ export const ExpenseTab: React.FC = () => {
   const [amountTHB, setAmountTHB] = useState('');
   const [amountIDR, setAmountIDR] = useState('');
   const [currencyMode, setCurrencyMode] = useState<'THB' | 'IDR'>('THB');
-  const [paidBy, setPaidBy] = useState<'Shared' | 'Shared Pocket' | MemberName>('Shared');
+  const [paidBy, setPaidBy] = useState<'Shared' | 'Shared Pocket' | MemberName>('Shared Pocket');
   const [splitBetween, setSplitBetween] = useState<MemberName[]>(ALL_MEMBERS);
   const [notes, setNotes] = useState('');
   const [date, setDate] = useState(new Date().toLocaleDateString('id-ID'));
 
-  // Edit Contributions state
-  const [tempContr, setTempContr] = useState<{ [key in MemberName]: string }>({
-    Abit: (contributions.find(c => c.memberName === 'Abit')?.totalDebitIDR || 3500000).toString(),
-    Aisha: (contributions.find(c => c.memberName === 'Aisha')?.totalDebitIDR || 3500000).toString(),
-    Alin: (contributions.find(c => c.memberName === 'Alin')?.totalDebitIDR || 3500000).toString(),
-    Bila: (contributions.find(c => c.memberName === 'Bila')?.totalDebitIDR || 3500000).toString(),
-    Risha: (contributions.find(c => c.memberName === 'Risha')?.totalDebitIDR || 3500000).toString()
-  });
+  // Add Kas Income Form State
+  const [kasSource, setKasSource] = useState<MemberName | 'Bunga Bank' | 'Other / Bonus'>('Aisha');
+  const [kasAmountIDR, setKasAmountIDR] = useState('3500000');
+  const [kasDate, setKasDate] = useState(new Date().toLocaleDateString('id-ID'));
+  const [kasNotes, setKasNotes] = useState('');
 
   const kas = getKasSummary();
   const settlements = getMemberSettlements();
@@ -93,12 +87,20 @@ export const ExpenseTab: React.FC = () => {
     setShowAddModal(false);
   };
 
-  const handleSaveContributions = () => {
-    ALL_MEMBERS.forEach(m => {
-      const val = parseFloat(tempContr[m]) || 0;
-      updateContribution(m, val);
+  const handleAddKasDepositSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = parseFloat(kasAmountIDR);
+    if (!amt || amt <= 0) return;
+
+    addKasDeposit({
+      source: kasSource,
+      amountIDR: amt,
+      date: kasDate || new Date().toLocaleDateString('id-ID'),
+      notes: kasNotes.trim() || (kasSource === 'Bunga Bank' ? 'Bunga Tabungan' : 'Setoran Kas')
     });
-    setShowContrModal(false);
+
+    setKasAmountIDR('');
+    setKasNotes('');
   };
 
   const toggleSplitMember = (m: MemberName) => {
@@ -337,8 +339,14 @@ export const ExpenseTab: React.FC = () => {
 
       {/* Modal Add Expense */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
+        <div
+          onClick={() => setShowAddModal(false)}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto"
+          >
             <h3 className="text-lg font-bold text-slate-900 mb-1">Add Trip Expense</h3>
             <p className="text-xs text-slate-500 mb-4">
               Record a meal, transport, hotel, or shopping expense paid by Kas or Talangan.
@@ -513,44 +521,159 @@ export const ExpenseTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal Edit Kas Contributions */}
+      {/* Modal Edit Kas Income & Contributions */}
       {showContrModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
-            <h3 className="text-lg font-bold text-slate-900 mb-1">Edit Shared Kas Contributions</h3>
-            <p className="text-xs text-slate-500 mb-4">
-              Update how much cash each member deposited into the Shared Pocket.
-            </p>
-
-            <div className="space-y-3 text-xs mb-4">
-              {ALL_MEMBERS.map(m => (
-                <div key={m} className="flex items-center justify-between gap-3">
-                  <span className="font-bold text-slate-800 w-16">{m}:</span>
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">Rp</span>
-                    <input
-                      type="number"
-                      value={tempContr[m]}
-                      onChange={e => setTempContr({ ...tempContr, [m]: e.target.value })}
-                      className="w-full pl-8 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex justify-end space-x-2">
+        <div
+          onClick={() => setShowContrModal(false)}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto space-y-4"
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-indigo-100">
+              <div className="flex items-center space-x-2">
+                <PiggyBank className="w-5 h-5 text-indigo-600" />
+                <h3 className="text-base font-black text-indigo-950">
+                  Shared Kas Income & Deposits
+                </h3>
+              </div>
               <button
                 onClick={() => setShowContrModal(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
+                className="p-1.5 text-indigo-400 hover:text-indigo-950 rounded-full hover:bg-indigo-50"
               >
-                Cancel
+                <X className="w-5 h-5" />
               </button>
+            </div>
+
+            <p className="text-xs text-indigo-600/80 font-medium leading-relaxed">
+              Catat pemasukan kas kelompok. Pilih sumber (anggota, bunga bank, atau bonus) beserta tanggal & nominal setoran.
+            </p>
+
+            {/* Income Entries Table */}
+            <div className="bg-indigo-50/50 rounded-2xl p-3 border border-indigo-100 space-y-2">
+              <div className="flex items-center justify-between text-xs font-black text-indigo-950 px-1">
+                <span>Daftar Pemasukan Kas</span>
+                <span className="text-amber-600">Total: Rp {kas.totalKasInputIDR.toLocaleString('id-ID')}</span>
+              </div>
+
+              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1 text-xs">
+                {kasDeposits.length === 0 ? (
+                  <div className="text-center py-4 text-indigo-300 italic">Belum ada catatan setoran kas.</div>
+                ) : (
+                  kasDeposits.map(dep => (
+                    <div key={dep.id} className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-indigo-100 shadow-2xs">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                            dep.source === 'Bunga Bank'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : dep.source === 'Other / Bonus'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-amber-100 text-amber-900'
+                          }`}>
+                            {dep.source}
+                          </span>
+                          <span className="text-[10px] font-mono text-indigo-400">{dep.date}</span>
+                        </div>
+                        <p className="text-[11px] font-medium text-indigo-900 mt-0.5">{dep.notes}</p>
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <span className="font-black text-indigo-950">
+                          Rp {dep.amountIDR.toLocaleString('id-ID')}
+                        </span>
+                        <button
+                          onClick={() => deleteKasDeposit(dep.id)}
+                          className="p-1 text-indigo-300 hover:text-rose-600 transition"
+                          title="Hapus setoran"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Form to Add New Kas Deposit */}
+            <form onSubmit={handleAddKasDepositSubmit} className="bg-white p-4 rounded-2xl border border-indigo-200 space-y-3 text-xs">
+              <h4 className="font-extrabold text-indigo-950 flex items-center space-x-1.5">
+                <PlusCircle className="w-4 h-4 text-indigo-600" />
+                <span>Tambah Pemasukan / Setoran Kas Baru</span>
+              </h4>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block font-bold text-indigo-900 mb-1">Sumber Pemasukan *</label>
+                  <select
+                    value={kasSource}
+                    onChange={e => setKasSource(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 border border-indigo-200 rounded-xl font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-600 bg-white"
+                  >
+                    {ALL_MEMBERS.map(m => (
+                      <option key={m} value={m}>{m} (Setoran Kas)</option>
+                    ))}
+                    <option value="Bunga Bank">Bunga Bank</option>
+                    <option value="Other / Bonus">Other / Bonus / Cashback</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-indigo-900 mb-1">Nominal (IDR) *</label>
+                  <input
+                    type="number"
+                    required
+                    value={kasAmountIDR}
+                    onChange={e => setKasAmountIDR(e.target.value)}
+                    placeholder="e.g. 3500000"
+                    className="w-full px-2.5 py-1.5 border border-indigo-200 rounded-xl font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-600"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block font-bold text-indigo-900 mb-1">Tanggal *</label>
+                  <input
+                    type="text"
+                    required
+                    value={kasDate}
+                    onChange={e => setKasDate(e.target.value)}
+                    placeholder="01/08/2026"
+                    className="w-full px-2.5 py-1.5 border border-indigo-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-indigo-900 mb-1">Catatan / Keterangan</label>
+                  <input
+                    type="text"
+                    value={kasNotes}
+                    onChange={e => setKasNotes(e.target.value)}
+                    placeholder="e.g. Setoran Kas Tahap 1"
+                    className="w-full px-2.5 py-1.5 border border-indigo-200 rounded-xl font-medium focus:ring-2 focus:ring-indigo-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl shadow-xs transition"
+                >
+                  + Simpan Setoran Kas
+                </button>
+              </div>
+            </form>
+
+            <div className="flex justify-end pt-2 border-t border-indigo-100">
               <button
-                onClick={handleSaveContributions}
-                className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs"
+                onClick={() => setShowContrModal(false)}
+                className="px-5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-xl transition"
               >
-                Save Kas
+                Selesai / Tutup
               </button>
             </div>
           </div>
