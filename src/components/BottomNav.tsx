@@ -22,7 +22,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ onOpenQuickAdd }) => {
     { id: 'itinerary', label: 'Itinerary', icon: Calendar },
     { id: 'prep', label: 'Prep', icon: CheckSquare },
     { id: 'wishlist', label: 'Wishlist', icon: Heart },
-    { id: 'moodboard', label: 'Moodboard', icon: Camera },
+    { id: 'moodboard', label: 'Mood', icon: Camera },
     { id: 'expenses', label: 'Expense', icon: Wallet }
   ];
 
