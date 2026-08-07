@@ -115,7 +115,7 @@ export const ExpenseTab: React.FC = () => {
     <div className="space-y-6 pb-20">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
         <div>
           <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
             <Wallet className="w-4 h-4 text-rose-500" />
@@ -128,14 +128,6 @@ export const ExpenseTab: React.FC = () => {
             Track group kas balance and personal payments.
           </p>
         </div>
-
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Add New Expense</span>
-        </button>
       </div>
 
       {/* Kas Summary Cards */}
@@ -192,14 +184,23 @@ export const ExpenseTab: React.FC = () => {
 
       {/* Expense Section */}
       <div className="bg-white rounded-3xl border border-indigo-100/80 shadow-sm overflow-hidden">
-        <div className="p-5 border-b border-indigo-100/80 flex items-center justify-between">
+        <div className="p-5 border-b border-indigo-100/80 flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-base font-black text-indigo-950 flex items-center space-x-2">
             <Receipt className="w-5 h-5 text-indigo-600" />
             <span>Expense</span>
           </h3>
-          <span className="text-xs text-indigo-400 font-bold">
-            {expenses.length} Transactions
-          </span>
+          <div className="flex items-center space-x-3">
+            <span className="text-xs text-indigo-400 font-bold">
+              {expenses.length} Transactions
+            </span>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition"
+            >
+              <Plus className="w-4 h-4 stroke-[3]" />
+              <span>Add New Expense</span>
+            </button>
+          </div>
         </div>
 
         {/* Mobile Cards View */}
