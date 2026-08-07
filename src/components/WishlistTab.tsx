@@ -142,7 +142,7 @@ export const WishlistTab: React.FC = () => {
             <span>Activity & Place Wishlist</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-            Group Wishlist Bucket List
+            Group Bucket List
           </h2>
           <p className="text-xs text-indigo-400 font-medium">
             Shopping spots, aesthetic cafes, photo spots & food markets requested by friends.
@@ -333,7 +333,7 @@ export const WishlistTab: React.FC = () => {
           <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-slate-900">
-                {editingItemId ? 'Edit Wishlist Place' : 'Add Wishlist Place'}
+                {editingItemId ? 'Edit Bucket List' : 'Add Wishlist Place'}
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -376,33 +376,6 @@ export const WishlistTab: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Rating Priority</label>
-                  <select
-                    value={rating}
-                    onChange={e => setRating(parseInt(e.target.value))}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  >
-                    <option value={5}>⭐⭐⭐⭐⭐ (Must Visit!)</option>
-                    <option value={4}>⭐⭐⭐⭐ (High Priority)</option>
-                    <option value={3}>⭐⭐⭐ (Nice to Have)</option>
-                    <option value={2}>⭐⭐ (If Time Permits)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Est. Expense (THB)</label>
-                  <input
-                    type="number"
-                    value={estimatedPriceTHB}
-                    onChange={e => setEstimatedPriceTHB(e.target.value)}
-                    placeholder="e.g. 500"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
                   <label className="block font-semibold text-slate-700 mb-1">Proposed By</label>
                   <select
                     value={proposedBy}
@@ -414,6 +387,17 @@ export const WishlistTab: React.FC = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Est. Expense (THB)</label>
+                <input
+                  type="number"
+                  value={estimatedPriceTHB}
+                  onChange={e => setEstimatedPriceTHB(e.target.value)}
+                  placeholder="e.g. 500"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
               </div>
 
               <div>
@@ -450,7 +434,7 @@ export const WishlistTab: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
                 >
-                  {editingItemId ? 'Simpan Perubahan' : 'Save Wishlist'}
+                  Save
                 </button>
               </div>
             </form>
