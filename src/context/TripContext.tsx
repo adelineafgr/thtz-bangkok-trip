@@ -188,11 +188,30 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isUpdatingFromCloud = useRef(false);
   const isInitialCloudLoadDone = useRef(false);
 
+  // Helper function to strip undefined values before sending to Firestore
+  const removeUndefinedFields = (obj: any): any => {
+    if (obj === null || obj === undefined) return null;
+    if (Array.isArray(obj)) {
+      return obj.map(removeUndefinedFields);
+    }
+    if (typeof obj === 'object') {
+      const cleaned: Record<string, any> = {};
+      for (const key of Object.keys(obj)) {
+        const val = obj[key];
+        if (val !== undefined) {
+          cleaned[key] = removeUndefinedFields(val);
+        }
+      }
+      return cleaned;
+    }
+    return obj;
+  };
+
   // Helper to save data to Firebase Firestore
   const syncToCloud = async (overrideData?: Record<string, any>) => {
     try {
       const tripRef = doc(db, 'trips', TRIP_DOC_ID);
-      const dataToSave = overrideData || {
+      const rawData = overrideData || {
         prepNotes,
         wishlist,
         moodboard,
@@ -205,7 +224,8 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         exchangeRate,
         updatedAt: new Date().toISOString()
       };
-      await setDoc(tripRef, dataToSave, { merge: true });
+      const cleanedData = removeUndefinedFields(rawData);
+      await setDoc(tripRef, cleanedData, { merge: true });
       setIsCloudSynced(true);
     } catch (err) {
       console.error('Firebase sync error:', err);
