@@ -64,6 +64,14 @@ export interface ExpenseItem {
   receiptUrl?: string;
 }
 
+export interface KasDepositEntry {
+  id: string;
+  source: MemberName | 'Bunga Bank' | 'Other / Bonus';
+  amountIDR: number;
+  date: string; // e.g. "01/08/2026"
+  notes?: string;
+}
+
 export interface MemberContribution {
   memberName: MemberName;
   totalDebitIDR: number; // Cash contributed to Shared Pocket
