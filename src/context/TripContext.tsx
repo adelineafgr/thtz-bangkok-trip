@@ -9,6 +9,7 @@ import {
   WishlistItem,
   MoodboardItem,
   ExpenseItem,
+  KasDepositEntry,
   MemberContribution,
   MemberSettlement,
   SettlementInstruction,
@@ -29,6 +30,14 @@ import {
   INITIAL_ESSENTIAL_DOCUMENTS
 } from '../data/initialData';
 
+export const INITIAL_KAS_DEPOSITS: KasDepositEntry[] = [
+  { id: 'dep-1', source: 'Abit', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-2', source: 'Aisha', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-3', source: 'Alin', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-4', source: 'Bila', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-5', source: 'Risha', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' }
+];
+
 export type TabType = 'overview' | 'itinerary' | 'prep' | 'wishlist' | 'moodboard' | 'expenses';
 
 interface TripContextType {
@@ -48,11 +57,15 @@ interface TripContextType {
   moodboard: MoodboardItem[];
   expenses: ExpenseItem[];
   contributions: MemberContribution[];
+  kasDeposits: KasDepositEntry[];
   itinerary: ItineraryDay[];
   accommodations: AccommodationOption[];
   essentialDocs: EssentialDocument[];
 
   // CRUD Actions
+  addKasDeposit: (deposit: Omit<KasDepositEntry, 'id'>) => void;
+  editKasDeposit: (id: string, updated: Partial<KasDepositEntry>) => void;
+  deleteKasDeposit: (id: string) => void;
   addPrepNote: (note: Omit<PreparationNote, 'id'>) => void;
   editPrepNote: (id: string, updated: Partial<PreparationNote>) => void;
   updatePrepNoteStatus: (id: string, status: PreparationNote['status']) => void;
@@ -152,6 +165,11 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : DEFAULT_MEMBERS_CONTRIBUTIONS;
   });
 
+  const [kasDeposits, setKasDeposits] = useState<KasDepositEntry[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}kas_deposits`);
+    return saved ? JSON.parse(saved) : INITIAL_KAS_DEPOSITS;
+  });
+
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}itinerary`);
     return saved ? JSON.parse(saved) : INITIAL_ITINERARY;
@@ -180,6 +198,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         moodboard,
         expenses,
         contributions,
+        kasDeposits,
         itinerary,
         accommodations,
         essentialDocs,
@@ -206,6 +225,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.moodboard) setMoodboard(data.moodboard);
         if (data.expenses) setExpenses(data.expenses);
         if (data.contributions) setContributions(data.contributions);
+        if (data.kasDeposits) setKasDeposits(data.kasDeposits);
         if (data.itinerary) setItinerary(data.itinerary);
         if (data.accommodations) setAccommodations(data.accommodations);
         if (data.essentialDocs) setEssentialDocs(data.essentialDocs);
@@ -279,6 +299,22 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(`${STORAGE_KEY_PREFIX}contributions`, JSON.stringify(contributions));
     if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ contributions });
   }, [contributions]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}kas_deposits`, JSON.stringify(kasDeposits));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ kasDeposits });
+    
+    // Auto-update contributions for each member based on kasDeposits
+    const memberTotals: Record<MemberName, number> = {
+      Abit: 0, Aisha: 0, Alin: 0, Bila: 0, Risha: 0
+    };
+    kasDeposits.forEach(dep => {
+      if (dep.source in memberTotals) {
+        memberTotals[dep.source as MemberName] += dep.amountIDR;
+      }
+    });
+    setContributions(ALL_MEMBERS.map(m => ({ memberName: m, totalDebitIDR: memberTotals[m] })));
+  }, [kasDeposits]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}itinerary`, JSON.stringify(itinerary));
@@ -402,6 +438,22 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateContribution = (member: MemberName, amountIDR: number) => {
     setContributions(prev => prev.map(c => c.memberName === member ? { ...c, totalDebitIDR: amountIDR } : c));
+  };
+
+  const addKasDeposit = (deposit: Omit<KasDepositEntry, 'id'>) => {
+    const newDep: KasDepositEntry = {
+      ...deposit,
+      id: `dep-${Date.now()}`
+    };
+    setKasDeposits(prev => [newDep, ...prev]);
+  };
+
+  const editKasDeposit = (id: string, updated: Partial<KasDepositEntry>) => {
+    setKasDeposits(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d));
+  };
+
+  const deleteKasDeposit = (id: string) => {
+    setKasDeposits(prev => prev.filter(d => d.id !== id));
   };
 
   const addItineraryActivity = (dayNumber: number, activity: Omit<ItineraryActivity, 'id'>) => {
@@ -559,7 +611,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Kas calculations
   const getKasSummary = () => {
-    const totalKasInputIDR = contributions.reduce((sum, c) => sum + c.totalDebitIDR, 0);
+    const totalKasInputIDR = kasDeposits.reduce((sum, d) => sum + d.amountIDR, 0);
     // Expenses paid by "Shared Pocket"
     const totalExpensesIDR = expenses
       .filter(e => e.paidBy === 'Shared Pocket')
@@ -662,6 +714,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         moodboard,
         expenses,
         contributions,
+        kasDeposits,
         itinerary,
         accommodations,
         essentialDocs,
@@ -681,6 +734,9 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         addExpense,
         deleteExpense,
         updateContribution,
+        addKasDeposit,
+        editKasDeposit,
+        deleteKasDeposit,
         addItineraryActivity,
         editItineraryActivity,
         deleteItineraryActivity,
