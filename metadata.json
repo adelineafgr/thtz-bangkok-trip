@@ -1,6 +1,0 @@
-{
-  "name": "Bangkok Trip 2026 Planner",
-  "description": "Interactive trip planner, expense & talangan tracker, moodboard gallery, and 5-day itinerary for Bangkok trip.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
