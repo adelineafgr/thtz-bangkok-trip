@@ -43,7 +43,8 @@ export const OverviewTab: React.FC = () => {
     getKasSummary,
     formatCurrency,
     setActiveTab,
-    exchangeRate
+    exchangeRate,
+    itinerary
   } = useTrip();
 
   // Essential Documents expanded state
@@ -119,6 +120,17 @@ export const OverviewTab: React.FC = () => {
   const kas = getKasSummary();
   const donePrep = prepNotes.filter(p => p.status === 'Done').length;
   const prepProgressPercent = Math.round((donePrep / (prepNotes.length || 1)) * 100);
+
+  // Next upcoming activity from itinerary
+  const allActivitiesWithDay = itinerary.flatMap(day =>
+    day.activities.map(act => ({
+      ...act,
+      dayNumber: day.dayNumber,
+      dateStr: day.dateStr,
+      dayTitle: day.title
+    }))
+  );
+  const nextActivity = allActivitiesWithDay.find(act => !act.isDone) || allActivitiesWithDay[0];
 
   // Countdown calc to Oct 30, 2026
   const tripDate = new Date('2026-10-30T00:00:00');
@@ -247,26 +259,50 @@ export const OverviewTab: React.FC = () => {
         </div>
       </div>
 
-      {/* TDAC Warning Banner */}
-      <div className="bg-gradient-to-r from-rose-500 via-indigo-600 to-indigo-900 rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-xs flex-shrink-0">
-            <AlertTriangle className="w-6 h-6 text-amber-300" />
+      {/* Upcoming Event Banner */}
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-rose-950 rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-indigo-700/50">
+        <div className="flex items-start sm:items-center space-x-3.5 min-w-0">
+          <div className="p-3 bg-rose-500/20 border border-rose-400/30 rounded-2xl backdrop-blur-xs flex-shrink-0 text-amber-300">
+            <Calendar className="w-6 h-6 text-amber-300" />
           </div>
-          <div>
-            <h4 className="font-black text-sm sm:text-base tracking-tight">
-              Essential Reminder: TDAC Form
-            </h4>
-            <p className="text-xs text-rose-100 font-bold leading-tight">
-              ⚠️ DIISI MAKSIMAL 3 HARI SEBELUM SAMPAI DI BANGKOK (BKK) ⚠️
-            </p>
+          <div className="min-w-0">
+            <div className="flex items-center space-x-2 text-[10px] sm:text-xs font-black text-amber-300 uppercase tracking-widest mb-0.5">
+              <span>Upcoming Event</span>
+              {nextActivity && (
+                <span className="bg-white/10 px-2 py-0.5 rounded-full text-indigo-200">
+                  Day {nextActivity.dayNumber} · {nextActivity.time}
+                </span>
+              )}
+            </div>
+            {nextActivity ? (
+              <div>
+                <h4 className="font-black text-sm sm:text-base tracking-tight text-white truncate">
+                  {nextActivity.title}
+                </h4>
+                {nextActivity.locationName && (
+                  <p className="text-xs text-indigo-200 font-medium flex items-center space-x-1 mt-0.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span className="truncate">{nextActivity.locationName}</span>
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <h4 className="font-black text-sm sm:text-base tracking-tight text-white">
+                  No upcoming activities scheduled
+                </h4>
+                <p className="text-xs text-indigo-200 font-medium mt-0.5">
+                  Start adding events to your Bangkok itinerary!
+                </p>
+              </div>
+            )}
           </div>
         </div>
         <button
-          onClick={() => setActiveTab('prep')}
-          className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-4 py-2 bg-white text-indigo-950 rounded-2xl text-xs font-black shadow-md hover:bg-rose-50 transition shrink-0"
+          onClick={() => setActiveTab('itinerary')}
+          className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-white text-indigo-950 rounded-2xl text-xs font-black shadow-md hover:bg-rose-50 transition shrink-0 cursor-pointer"
         >
-          <span>Check Prep Checklist</span>
+          <span>View Itinerary</span>
           <ArrowRight className="w-3.5 h-3.5 text-indigo-600" />
         </button>
       </div>
@@ -591,7 +627,7 @@ export const OverviewTab: React.FC = () => {
               className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-full shadow-xs flex items-center space-x-1 transition"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span>Document</span>
+              <span>Add Document</span>
             </button>
           </div>
 
