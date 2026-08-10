@@ -741,8 +741,8 @@ export const WishlistTab: React.FC = () => {
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
                   placeholder="What to buy, best photo spot, food to try..."
-                  rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  rows={4}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                 />
               </div>
 
