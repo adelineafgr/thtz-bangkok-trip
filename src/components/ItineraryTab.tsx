@@ -255,17 +255,19 @@ export const ItineraryTab: React.FC = () => {
   return (
     <div className="space-y-6 pb-20">
       
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-xs">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
-            <CalendarIcon className="w-4 h-4 text-rose-500" />
-            <span>Bangkok Trip Itinerary</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-            Agenda & Jadwal Kegiatan
-          </h2>
+      {/* Header */}
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
+        <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
+          <CheckSquare className="w-4 h-4 text-rose-500" />
+          <span>Bangkok Plans</span>
         </div>
+        <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
+          Our Day-by-Day Itinerary
+        </h2>
+        <p className="text-xs text-indigo-400 font-medium">
+          See where we're going, what we're doing, and all the little moments in between.
+        </p>
+      </div>
 
         <div>
           <button
