@@ -676,6 +676,7 @@ export const INITIAL_ACCOMMODATION_OPTIONS: AccommodationOption[] = [
       'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?q=80&w=800&auto=format&fit=crop',
       'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?q=80&w=800&auto=format&fit=crop'
     ],
+    bookingLink: 'https://www.airbnb.com/s/Khlong-Toei--Bangkok--Thailand',
     votes: ['Abit', 'Alin']
   },
   {
@@ -700,6 +701,7 @@ export const INITIAL_ACCOMMODATION_OPTIONS: AccommodationOption[] = [
       'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?q=80&w=800&auto=format&fit=crop',
       'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?q=80&w=800&auto=format&fit=crop'
     ],
+    bookingLink: 'https://www.agoda.com/city/bangkok-th.html',
     votes: ['Aisha', 'Bila', 'Risha']
   }
 ];
