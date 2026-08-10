@@ -3,6 +3,7 @@ import { useTrip } from '../context/TripContext';
 import { ItineraryActivity } from '../types';
 import {
   Calendar as CalendarIcon,
+  CheckSquare,
   MapPin,
   ExternalLink,
   Plus,
@@ -256,23 +257,24 @@ export const ItineraryTab: React.FC = () => {
     <div className="space-y-6 pb-20">
       
       {/* Header */}
-      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
-        <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
-          <CheckSquare className="w-4 h-4 text-rose-500" />
-          <span>Bangkok Plans</span>
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
+            <CheckSquare className="w-4 h-4 text-rose-500" />
+            <span>Bangkok Plans</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
+            Our Day-by-Day Itinerary
+          </h2>
+          <p className="text-xs text-indigo-400 font-medium">
+            See where we're going, what we're doing, and all the little moments in between.
+          </p>
         </div>
-        <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-          Our Day-by-Day Itinerary
-        </h2>
-        <p className="text-xs text-indigo-400 font-medium">
-          See where we're going, what we're doing, and all the little moments in between.
-        </p>
-      </div>
 
         <div>
           <button
             onClick={() => openAddModal()}
-            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs uppercase tracking-tight rounded-2xl shadow-md flex items-center space-x-1.5 transition"
+            className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs uppercase tracking-tight rounded-2xl shadow-md flex items-center space-x-1.5 transition shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4 stroke-[3]" />
             <span>Add Activity</span>
