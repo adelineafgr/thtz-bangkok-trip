@@ -16,7 +16,8 @@ import {
   ItineraryDay,
   ItineraryActivity,
   AccommodationOption,
-  EssentialDocument
+  EssentialDocument,
+  RandomNote
 } from '../types';
 import {
   DEFAULT_EXCHANGE_RATE_IDR_PER_THB,
@@ -27,7 +28,8 @@ import {
   INITIAL_EXPENSES,
   INITIAL_ITINERARY,
   INITIAL_ACCOMMODATION_OPTIONS,
-  INITIAL_ESSENTIAL_DOCUMENTS
+  INITIAL_ESSENTIAL_DOCUMENTS,
+  INITIAL_RANDOM_NOTES
 } from '../data/initialData';
 
 export const INITIAL_KAS_DEPOSITS: KasDepositEntry[] = [
@@ -38,7 +40,7 @@ export const INITIAL_KAS_DEPOSITS: KasDepositEntry[] = [
   { id: 'dep-5', source: 'Risha', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' }
 ];
 
-export type TabType = 'overview' | 'itinerary' | 'prep' | 'wishlist' | 'moodboard' | 'expenses';
+export type TabType = 'overview' | 'itinerary' | 'prep' | 'notes' | 'wishlist' | 'moodboard' | 'expenses';
 
 interface TripContextType {
   currentMember: MemberName;
@@ -53,6 +55,7 @@ interface TripContextType {
   
   // Data
   prepNotes: PreparationNote[];
+  randomNotes: RandomNote[];
   wishlist: WishlistItem[];
   moodboard: MoodboardItem[];
   expenses: ExpenseItem[];
@@ -70,6 +73,11 @@ interface TripContextType {
   editPrepNote: (id: string, updated: Partial<PreparationNote>) => void;
   updatePrepNoteStatus: (id: string, status: PreparationNote['status']) => void;
   deletePrepNote: (id: string) => void;
+
+  addRandomNote: (note: Omit<RandomNote, 'id' | 'createdAt'>) => void;
+  editRandomNote: (id: string, updated: Partial<RandomNote>) => void;
+  deleteRandomNote: (id: string) => void;
+  togglePinRandomNote: (id: string) => void;
 
   addWishlistItem: (item: Omit<WishlistItem, 'id'>) => void;
   editWishlistItem: (id: string, updated: Partial<WishlistItem>) => void;
@@ -145,6 +153,11 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return saved ? JSON.parse(saved) : INITIAL_PREPARATION_NOTES;
   });
 
+  const [randomNotes, setRandomNotes] = useState<RandomNote[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}random_notes`);
+    return saved ? JSON.parse(saved) : INITIAL_RANDOM_NOTES;
+  });
+
   const [wishlist, setWishlist] = useState<WishlistItem[]>(() => {
     const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}wishlist`);
     return saved ? JSON.parse(saved) : INITIAL_WISHLIST;
@@ -213,6 +226,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const tripRef = doc(db, 'trips', TRIP_DOC_ID);
       const rawData = overrideData || {
         prepNotes,
+        randomNotes,
         wishlist,
         moodboard,
         expenses,
@@ -241,6 +255,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isUpdatingFromCloud.current = true;
 
         if (data.prepNotes) setPrepNotes(data.prepNotes);
+        if (data.randomNotes) setRandomNotes(data.randomNotes);
         if (data.wishlist) setWishlist(data.wishlist);
         if (data.moodboard) setMoodboard(data.moodboard);
         if (data.expenses) setExpenses(data.expenses);
@@ -260,6 +275,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Document does not exist yet -> populate with initial data
         syncToCloud({
           prepNotes: INITIAL_PREPARATION_NOTES,
+          randomNotes: INITIAL_RANDOM_NOTES,
           wishlist: INITIAL_WISHLIST,
           moodboard: INITIAL_MOODBOARD,
           expenses: INITIAL_EXPENSES,
@@ -299,6 +315,11 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem(`${STORAGE_KEY_PREFIX}prep_notes`, JSON.stringify(prepNotes));
     if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ prepNotes });
   }, [prepNotes]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}random_notes`, JSON.stringify(randomNotes));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ randomNotes });
+  }, [randomNotes]);
 
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY_PREFIX}wishlist`, JSON.stringify(wishlist));
@@ -370,6 +391,27 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deletePrepNote = (id: string) => {
     setPrepNotes(prev => prev.filter(n => n.id !== id));
+  };
+
+  const addRandomNote = (note: Omit<RandomNote, 'id' | 'createdAt'>) => {
+    const newNote: RandomNote = {
+      ...note,
+      id: `note-${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    setRandomNotes(prev => [newNote, ...prev]);
+  };
+
+  const editRandomNote = (id: string, updated: Partial<RandomNote>) => {
+    setRandomNotes(prev => prev.map(n => n.id === id ? { ...n, ...updated } : n));
+  };
+
+  const deleteRandomNote = (id: string) => {
+    setRandomNotes(prev => prev.filter(n => n.id !== id));
+  };
+
+  const togglePinRandomNote = (id: string) => {
+    setRandomNotes(prev => prev.map(n => n.id === id ? { ...n, isPinned: !n.isPinned } : n));
   };
 
   const addWishlistItem = (item: Omit<WishlistItem, 'id'>) => {
@@ -594,10 +636,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.clear();
 
     setPrepNotes(INITIAL_PREPARATION_NOTES);
+    setRandomNotes(INITIAL_RANDOM_NOTES);
     setWishlist(INITIAL_WISHLIST);
     setMoodboard(INITIAL_MOODBOARD);
     setExpenses(INITIAL_EXPENSES);
     setContributions(DEFAULT_MEMBERS_CONTRIBUTIONS);
+    setKasDeposits(INITIAL_KAS_DEPOSITS);
     setItinerary(INITIAL_ITINERARY);
     setAccommodations(INITIAL_ACCOMMODATION_OPTIONS);
     setEssentialDocs(INITIAL_ESSENTIAL_DOCUMENTS);
@@ -606,10 +650,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     syncToCloud({
       prepNotes: INITIAL_PREPARATION_NOTES,
+      randomNotes: INITIAL_RANDOM_NOTES,
       wishlist: INITIAL_WISHLIST,
       moodboard: INITIAL_MOODBOARD,
       expenses: INITIAL_EXPENSES,
       contributions: DEFAULT_MEMBERS_CONTRIBUTIONS,
+      kasDeposits: INITIAL_KAS_DEPOSITS,
       itinerary: INITIAL_ITINERARY,
       accommodations: INITIAL_ACCOMMODATION_OPTIONS,
       essentialDocs: INITIAL_ESSENTIAL_DOCUMENTS,
@@ -730,6 +776,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setActiveTab,
         isCloudSynced,
         prepNotes,
+        randomNotes,
         wishlist,
         moodboard,
         expenses,
@@ -742,6 +789,10 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         editPrepNote,
         updatePrepNoteStatus,
         deletePrepNote,
+        addRandomNote,
+        editRandomNote,
+        deleteRandomNote,
+        togglePinRandomNote,
         addWishlistItem,
         editWishlistItem,
         toggleWishlistStatus,
