@@ -142,8 +142,51 @@ export const PrepNotesTab: React.FC = () => {
     return true;
   });
 
-  const pinnedNotes = filteredNotes.filter(n => n.isPinned);
-  const unpinnedNotes = filteredNotes.filter(n => !n.isPinned);
+  const parseDateToTimestamp = (dateStr?: string): number => {
+    if (!dateStr) return Infinity;
+    const parts = dateStr.trim().split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+        return new Date(year, month, day).getTime();
+      }
+    }
+    const parsed = Date.parse(dateStr);
+    return isNaN(parsed) ? Infinity : parsed;
+  };
+
+  const sortNotes = (a: PreparationNote, b: PreparationNote) => {
+    const statusOrder: Record<NoteStatus, number> = {
+      'Upcoming': 1,
+      'To Schedule': 2,
+      'Done': 3
+    };
+    const orderA = statusOrder[a.status] || 2;
+    const orderB = statusOrder[b.status] || 2;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+
+    const timeA = parseDateToTimestamp(a.date);
+    const timeB = parseDateToTimestamp(b.date);
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    return 0;
+  };
+
+  const sortedFilteredNotes = [...filteredNotes].sort(sortNotes);
+  const pinnedNotes = sortedFilteredNotes.filter(n => n.isPinned);
+  const unpinnedNotes = sortedFilteredNotes.filter(n => !n.isPinned);
+
+  const tableNotes = [...filteredNotes].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
+    return sortNotes(a, b);
+  });
 
   const getColorClasses = (c?: NoteColor) => {
     switch (c) {
@@ -435,14 +478,14 @@ export const PrepNotesTab: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-indigo-50 font-medium">
-                {filteredNotes.length === 0 ? (
+                {tableNotes.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-400">
                       No prep notes found.
                     </td>
                   </tr>
                 ) : (
-                  filteredNotes.map(n => (
+                  tableNotes.map(n => (
                     <tr
                       key={n.id}
                       onClick={() => setActiveDetailNote(n)}
