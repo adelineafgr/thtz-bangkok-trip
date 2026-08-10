@@ -124,7 +124,7 @@ export const ExpenseTab: React.FC = () => {
             <span>Expense Tracker & Settlement Matrix</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-            Shared Pocket & Talangan Calculator
+            Expense Summary
           </h2>
           <p className="text-xs text-indigo-400 font-medium">
             Track group kas balance and personal payments.
