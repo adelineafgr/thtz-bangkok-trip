@@ -4,8 +4,6 @@ import { NoteStatus, MemberName, ALL_MEMBERS } from '../types';
 import {
   CheckSquare,
   Clock,
-  Calendar,
-  User,
   Plus,
   Trash2,
   AlertCircle,
@@ -21,11 +19,11 @@ export const PrepNotesTab: React.FC = () => {
     addPrepNote,
     editPrepNote,
     updatePrepNoteStatus,
-    deletePrepNote,
-    currentMember
+    deletePrepNote
   } = useTrip();
 
   const [filterStatus, setFilterStatus] = useState<'All' | NoteStatus>('All');
+  const [filterAssignee, setFilterAssignee] = useState<MemberName | 'All'>('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [activeDetailNote, setActiveDetailNote] = useState<any | null>(null);
@@ -61,25 +59,58 @@ export const PrepNotesTab: React.FC = () => {
   };
 
   const parseDateTimestamp = (dateStr: string): number => {
-    if (!dateStr) return 9999999999999;
-    const parts = dateStr.trim().split('/');
+    if (!dateStr || !dateStr.trim()) return 9999999999999;
+    const cleanStr = dateStr.trim();
+    const parts = cleanStr.split(/[\/\-]/);
     if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      let year = parseInt(parts[2], 10);
-      if (year < 100) year += 2000;
-      return new Date(year, month, day).getTime();
+      if (parts[0].length === 4) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) return d.getTime();
+      } else {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        let year = parseInt(parts[2], 10);
+        if (year < 100) year += 2000;
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) return d.getTime();
+      }
     }
-    const timestamp = new Date(dateStr).getTime();
+    const timestamp = new Date(cleanStr).getTime();
     return isNaN(timestamp) ? 9999999999999 : timestamp;
   };
 
   const filteredNotes = prepNotes.filter(n => {
-    if (filterStatus === 'All') return true;
-    return n.status === filterStatus;
+    if (filterStatus !== 'All' && n.status !== filterStatus) return false;
+    if (filterAssignee !== 'All' && (n.assignee || 'All') !== filterAssignee) return false;
+    return true;
   });
 
-  const sortedNotes = [...filteredNotes].sort((a, b) => parseDateTimestamp(a.date) - parseDateTimestamp(b.date));
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    // Done items move to the bottom
+    const aIsDone = a.status === 'Done';
+    const bIsDone = b.status === 'Done';
+    if (aIsDone !== bIsDone) {
+      return aIsDone ? 1 : -1;
+    }
+
+    // Sort by nearest deadline (earliest date timestamp first)
+    const timeA = parseDateTimestamp(a.date);
+    const timeB = parseDateTimestamp(b.date);
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    // Priority: Upcoming before To Schedule
+    if (a.status !== b.status) {
+      if (a.status === 'Upcoming') return -1;
+      if (b.status === 'Upcoming') return 1;
+    }
+
+    return 0;
+  });
 
   const doneCount = prepNotes.filter(n => n.status === 'Done').length;
   const upcomingCount = prepNotes.filter(n => n.status === 'Upcoming').length;
@@ -145,24 +176,21 @@ export const PrepNotesTab: React.FC = () => {
     <div className="space-y-6 pb-20">
       
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
-            <CheckSquare className="w-4 h-4 text-rose-500" />
-            <span>Notes & Wishlist Preparation</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-            Upcoming Events & To-Do Checklist
-          </h2>
-          <p className="text-xs text-indigo-400 font-medium">
-            Track flight bookings, TDAC forms, money exchange, and offline trip meetings.
-          </p>
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
+        <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
+          <CheckSquare className="w-4 h-4 text-rose-500" />
+          <span>Notes & Wishlist Preparation</span>
         </div>
+        <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
+          Upcoming Events & To-Do Checklist
+        </h2>
+        <p className="text-xs text-indigo-400 font-medium">
+          Track flight bookings, TDAC forms, money exchange, and offline trip meetings.
+        </p>
       </div>
 
-      {/* Filter Dropdown & Add Prep Button */}
-      <div className="flex items-center space-x-3">
-        {/* Status Dropdown */}
+      {/* Filter Dropdowns & Add Prep Button */}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-2xl border border-indigo-100 shadow-2xs text-xs">
           <Filter className="w-4 h-4 text-indigo-500 shrink-0" />
           <select
@@ -177,9 +205,23 @@ export const PrepNotesTab: React.FC = () => {
           </select>
         </div>
 
+        <div className="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-2xl border border-indigo-100 shadow-2xs text-xs">
+          <span className="text-slate-400 font-bold">Assigned to:</span>
+          <select
+            value={filterAssignee}
+            onChange={(e) => setFilterAssignee(e.target.value as any)}
+            className="bg-transparent font-extrabold text-indigo-950 outline-none cursor-pointer pr-1"
+          >
+            <option value="All">All</option>
+            {ALL_MEMBERS.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+
         <button
           onClick={openAddModal}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-2xl shadow-md flex items-center space-x-1.5 transition"
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-2xl shadow-md flex items-center space-x-1.5 transition ml-auto"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>Add Prep</span>
@@ -195,8 +237,8 @@ export const PrepNotesTab: React.FC = () => {
             <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-bold">
               <tr>
                 <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4">Agenda / Task</th>
-                <th className="py-3.5 px-4">Notes & Warnings</th>
+                <th className="py-3.5 px-4">Task</th>
+                <th className="py-3.5 px-4 w-36 sm:w-44">Notes</th>
                 <th className="py-3.5 px-4">Assignee</th>
                 <th className="py-3.5 px-4">Status</th>
                 <th className="py-3.5 px-4 text-right">Actions</th>
@@ -206,7 +248,7 @@ export const PrepNotesTab: React.FC = () => {
               {sortedNotes.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
-                    No notes found under this filter.
+                    No tasks found under this filter.
                   </td>
                 </tr>
               ) : (
@@ -225,13 +267,8 @@ export const PrepNotesTab: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 font-bold text-slate-900">
                         {n.agenda}
-                        {n.category && (
-                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 font-normal">
-                            {n.category}
-                          </span>
-                        )}
                       </td>
-                      <td className="py-3.5 px-4 text-slate-600 max-w-xs truncate">
+                      <td className="py-3.5 px-4 text-slate-600 max-w-[150px] w-36 sm:w-44 truncate">
                         {n.notes || '-'}
                       </td>
                       <td className="py-3.5 px-4">
@@ -239,18 +276,8 @@ export const PrepNotesTab: React.FC = () => {
                           {n.assignee || 'All'}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4" onClick={e => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const next = n.status === 'Done' ? 'Upcoming' : 'Done';
-                            updatePrepNoteStatus(n.id, next);
-                          }}
-                          className="hover:scale-105 transition focus:outline-none"
-                          title={`Click to toggle status (currently ${n.status})`}
-                        >
-                          {getStatusBadge(n.status)}
-                        </button>
+                      <td className="py-3.5 px-4">
+                        {getStatusBadge(n.status)}
                       </td>
                       <td className="py-3.5 px-4 text-right" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end space-x-1">
@@ -300,18 +327,7 @@ export const PrepNotesTab: React.FC = () => {
                       {n.agenda}
                     </h4>
                   </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const next = n.status === 'Done' ? 'Upcoming' : 'Done';
-                      updatePrepNoteStatus(n.id, next);
-                    }}
-                    className="hover:scale-105 transition focus:outline-none"
-                    title={`Click to toggle status (currently ${n.status})`}
-                  >
-                    {getStatusBadge(n.status)}
-                  </button>
+                  {getStatusBadge(n.status)}
                 </div>
 
                 {n.notes && (
@@ -355,11 +371,17 @@ export const PrepNotesTab: React.FC = () => {
 
       {/* Modal Add Preparation Note */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100">
+        <div
+          onClick={() => setShowAddModal(false)}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100"
+          >
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-slate-900">
-                {editingItemId ? 'Edit Preparation Task' : 'Add Preparation Event / Task'}
+                {editingItemId ? 'Edit Preparation Task' : 'Add Preparation Task'}
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -373,8 +395,9 @@ export const PrepNotesTab: React.FC = () => {
             </p>
 
             <form onSubmit={handleSaveSubmit} className="space-y-3 text-xs">
+              {/* 1. Title */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Agenda / Task Title *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Task Title *</label>
                 <input
                   type="text"
                   value={agenda}
@@ -385,32 +408,45 @@ export const PrepNotesTab: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Target Date</label>
-                  <input
-                    type="text"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    placeholder="e.g. 28/10/26"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Status</label>
-                  <select
-                    value={status}
-                    onChange={e => setStatus(e.target.value as NoteStatus)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  >
-                    <option value="Upcoming">Upcoming</option>
-                    <option value="To Schedule">To Schedule</option>
-                    <option value="Done">Done</option>
-                  </select>
-                </div>
+              {/* 2. Date */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Target Date</label>
+                <input
+                  type="text"
+                  value={date}
+                  onChange={e => setDate(e.target.value)}
+                  placeholder="e.g. 28/10/26"
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
               </div>
 
+              {/* 3. Notes */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Notes / Instructions</label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  placeholder="Details, links, deadline..."
+                  rows={2}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                />
+              </div>
+
+              {/* 4. Status */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Status</label>
+                <select
+                  value={status}
+                  onChange={e => setStatus(e.target.value as NoteStatus)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                >
+                  <option value="Upcoming">Upcoming</option>
+                  <option value="To Schedule">To Schedule</option>
+                  <option value="Done">Done</option>
+                </select>
+              </div>
+
+              {/* Assignee & Category */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Assignee</label>
@@ -434,22 +470,9 @@ export const PrepNotesTab: React.FC = () => {
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
                   >
                     <option value="Preparation">Preparation</option>
-                    <option value="Booking">Booking</option>
                     <option value="Document">Document</option>
-                    <option value="Meeting">Meeting</option>
                   </select>
                 </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Notes / Instructions</label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Details, links, deadline..."
-                  rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
               </div>
 
               <div className="flex justify-end space-x-2 pt-2">
@@ -462,9 +485,9 @@ export const PrepNotesTab: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs"
+                  className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
                 >
-                  Save Task
+                  {editingItemId ? 'Simpan Perubahan' : 'Add Prep'}
                 </button>
               </div>
             </form>
@@ -472,75 +495,47 @@ export const PrepNotesTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal View Preparation Task Detail */}
+      {/* Modal View Preparation Task Detail - Read Only & Click Outside to Close */}
       {activeDetailNote && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          onClick={() => setActiveDetailNote(null)}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150"
+          >
             {/* Modal Header */}
-            <div className="flex items-start justify-between">
-              <div>
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                  {activeDetailNote.category || 'Preparation'}
+            <div>
+              <div className="flex items-center space-x-2">
+                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200/80">
+                  Assigned: {activeDetailNote.assignee || 'All'}
                 </span>
-                <h3 className="text-lg font-black text-slate-900 mt-1 leading-snug">
-                  {activeDetailNote.agenda}
-                </h3>
-                <p className="text-xs text-slate-500 font-mono mt-0.5">
-                  🗓 Date: {activeDetailNote.date}
-                </p>
               </div>
-              <button
-                onClick={() => setActiveDetailNote(null)}
-                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <h3 className="text-lg font-black text-slate-900 mt-2 leading-snug">
+                {activeDetailNote.agenda}
+              </h3>
+              <p className="text-xs text-slate-500 font-mono mt-0.5">
+                🗓 Target Date: {activeDetailNote.date || '-'}
+              </p>
             </div>
 
-            {/* Content Body */}
+            {/* Read-Only Content Body */}
             <div className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <div>
-                <span className="text-slate-400 font-bold block mb-0.5">Assigned To:</span>
-                <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-extrabold text-xs inline-block">
-                  {activeDetailNote.assignee || 'All Members'}
-                </span>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-bold">Status:</span>
+                <div>{getStatusBadge(activeDetailNote.status)}</div>
               </div>
 
-              <div>
-                <span className="text-slate-400 font-bold block mb-0.5">Notes & Details:</span>
-                <p className="text-slate-700 font-medium whitespace-pre-wrap leading-relaxed">
+              <div className="pt-2 border-t border-slate-200/60">
+                <span className="text-slate-500 font-bold block mb-1">Notes & Details:</span>
+                <p className="text-slate-700 font-medium whitespace-pre-wrap leading-relaxed bg-white p-3 rounded-xl border border-slate-200/80">
                   {activeDetailNote.notes || 'No additional notes provided.'}
                 </p>
               </div>
-
-              <div>
-                <span className="text-slate-400 font-bold block mb-1.5">Change Preparation Status:</span>
-                <div className="flex flex-wrap items-center gap-2">
-                  {(['Upcoming', 'To Schedule', 'Done'] as const).map(st => (
-                    <button
-                      key={st}
-                      onClick={() => {
-                        updatePrepNoteStatus(activeDetailNote.id, st);
-                        setActiveDetailNote({ ...activeDetailNote, status: st });
-                      }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-black transition flex items-center space-x-1 ${
-                        activeDetailNote.status === st
-                          ? st === 'Done'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : st === 'Upcoming'
-                            ? 'bg-amber-500 text-white shadow-xs'
-                            : 'bg-sky-600 text-white shadow-xs'
-                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      <span>{st}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            {/* Modal Action Footer */}
+            {/* Modal Action Footer - No Close Button, click outside to close */}
             <div className="pt-2 flex items-center justify-between border-t border-slate-100">
               <button
                 onClick={() => {
@@ -554,25 +549,17 @@ export const PrepNotesTab: React.FC = () => {
                 <span>Delete</span>
               </button>
 
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    const taskToEdit = activeDetailNote;
-                    setActiveDetailNote(null);
-                    openEditModal(taskToEdit);
-                  }}
-                  className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition"
-                >
-                  <Pencil className="w-4 h-4" />
-                  <span>Edit</span>
-                </button>
-                <button
-                  onClick={() => setActiveDetailNote(null)}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition"
-                >
-                  Close
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  const taskToEdit = activeDetailNote;
+                  setActiveDetailNote(null);
+                  openEditModal(taskToEdit);
+                }}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center space-x-1.5 transition shadow-xs"
+              >
+                <Pencil className="w-4 h-4" />
+                <span>Edit Task</span>
+              </button>
             </div>
           </div>
         </div>
