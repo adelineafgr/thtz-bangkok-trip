@@ -6,7 +6,8 @@ import {
   ItineraryDay,
   AccommodationOption,
   MemberContribution,
-  EssentialDocument
+  EssentialDocument,
+  RandomNote
 } from '../types';
 
 export const DEFAULT_EXCHANGE_RATE_IDR_PER_THB = 561.12;
@@ -669,4 +670,63 @@ export const INITIAL_ESSENTIAL_DOCUMENTS: EssentialDocument[] = [
     readyMembers: ['Abit', 'Aisha', 'Alin', 'Bila']
   }
 ];
+
+export const INITIAL_RANDOM_NOTES: RandomNote[] = [
+  {
+    id: 'note-1',
+    title: 'Emergency Contact Bangkok',
+    content: '1. KBRI Bangkok: +66 2 247 0123\n2. Tourist Police: 1155\n3. Ambulans / Darurat: 1669\n4. CS e-SIM / Roaming Support: +62 811 1234 5678',
+    category: 'Emergency & Contacts',
+    color: 'pink',
+    author: 'Abit',
+    isPinned: true,
+    createdAt: '2026-08-01',
+    tags: ['Darurat', 'Kontak', 'Penting']
+  },
+  {
+    id: 'note-2',
+    title: 'Tips Naik TukTuk & Transportasi',
+    content: '• Nawar TukTuk minimal 30-40% dari harga penawaran awal supir.\n• Pakai aplikasi Grab / Bolt / InDrive untuk cek estimasi harga wajar.\n• Naik BTS / MRT lebih cepat bebas macet jam sibuk sore (17.00 - 19.00).',
+    category: 'Tips & Packing',
+    color: 'yellow',
+    author: 'Aisha',
+    isPinned: true,
+    createdAt: '2026-08-03',
+    tags: ['Transport', 'TukTuk', 'Tips']
+  },
+  {
+    id: 'note-3',
+    title: 'Ide Palette Warna Baju (OOTD Group)',
+    content: 'Day 1 (Wat Arun): Whites & Earthy Cream\nDay 2 (Chatuchak & Cafe): Bright Colorful Casual / Pastel\nDay 3 (Yaowarat Night Market): Chic Neon / Streetwear Black',
+    category: 'Ideas',
+    color: 'purple',
+    author: 'Alin',
+    isPinned: false,
+    createdAt: '2026-08-05',
+    tags: ['OOTD', 'Outfit', 'Foto']
+  },
+  {
+    id: 'note-4',
+    title: 'Colokan Listrik & Powerbank',
+    content: 'Thailand pakai colokan Tipe A, B, dan C (220V). Colokan Indonesia 2 kaki bulat (Tipe C) BISA dipakai langsung, tapi wajib bawa terminal colokan cabang biar bisa charge 5 HP + powerbank barengan di hotel!',
+    category: 'Tips & Packing',
+    color: 'blue',
+    author: 'Bila',
+    isPinned: false,
+    createdAt: '2026-08-06',
+    tags: ['Elektronik', 'Packing']
+  },
+  {
+    id: 'note-5',
+    title: 'Catatan Titipan Oleh-oleh',
+    content: '• Thai Tea Chatramue pouch merah & hijau\n• Snack rumput laut Tao Kae Noi jumbo\n• Inhaler Poy-Sian / Pastel Brand (1 pack isi 6)\n• Kaos gajah Chatuchak & Baju Bangkok',
+    category: 'General',
+    color: 'green',
+    author: 'Risha',
+    isPinned: false,
+    createdAt: '2026-08-08',
+    tags: ['Belanja', 'Oleh-oleh']
+  }
+];
+
 
