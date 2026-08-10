@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
-import { AccommodationOption } from '../types';
+import { AccommodationOption, ALL_MEMBERS } from '../types';
 import {
   Calendar,
   Building,
@@ -742,12 +742,13 @@ export const OverviewTab: React.FC = () => {
 
           <div className="space-y-2 text-xs">
             {essentialDocs.map(doc => {
-              const readyCount = doc.readyMembers.length;
-              const isCurrentMemberReady = doc.readyMembers.includes(currentMember);
+              const validReadyMembers = doc.readyMembers.filter(m => (ALL_MEMBERS as string[]).includes(m));
+              const readyCount = validReadyMembers.length;
+              const isCurrentMemberReady = validReadyMembers.includes(currentMember);
               const isExpanded = expandedDocId === doc.id;
 
               let badgeStyle = 'bg-amber-100 text-amber-900 border-amber-300';
-              if (readyCount === 5) {
+              if (readyCount === ALL_MEMBERS.length) {
                 badgeStyle = 'bg-emerald-100 text-emerald-900 border-emerald-300 font-black';
               } else if (doc.criticalNotice) {
                 badgeStyle = 'bg-rose-100 text-rose-900 border-rose-300 font-black';
@@ -778,7 +779,7 @@ export const OverviewTab: React.FC = () => {
 
                     <div className="flex items-center space-x-2 shrink-0">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] border font-black ${badgeStyle}`}>
-                        Ready {readyCount}/5
+                        Ready {readyCount}/{ALL_MEMBERS.length}
                       </span>
                       <div className="p-1 text-indigo-400 hover:text-indigo-900">
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -855,15 +856,15 @@ export const OverviewTab: React.FC = () => {
                       <div className="pt-2 border-t border-indigo-100/60">
                         <span className="text-[10px] text-indigo-400 font-bold block mb-1.5">All Friends Status:</span>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          {['Dhila', 'Dito', 'Tya', 'Adel', 'Anis'].map(m => {
-                            const mReady = doc.readyMembers.includes(m as any);
+                          {ALL_MEMBERS.map(m => {
+                            const mReady = validReadyMembers.includes(m);
                             return (
                               <button
                                 key={m}
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleDocumentMember(doc.id, m as any);
+                                  toggleDocumentMember(doc.id, m);
                                 }}
                                 className={`px-2.5 py-1 rounded-full text-[10px] font-black transition flex items-center space-x-1 ${
                                   mReady
