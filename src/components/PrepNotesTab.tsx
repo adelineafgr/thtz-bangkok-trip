@@ -11,7 +11,6 @@ import {
   Tag,
   User,
   Calendar,
-  Filter,
   Clock,
   CheckCircle2,
   AlertCircle,
@@ -27,16 +26,12 @@ export const PrepNotesTab: React.FC = () => {
     prepNotes,
     addPrepNote,
     editPrepNote,
-    updatePrepNoteStatus,
     deletePrepNote,
     togglePinPrepNote
   } = useTrip();
 
-  // Search & Filter States
+  // Search & View Mode States
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState<string>('All');
-  const [filterStatus, setFilterStatus] = useState<string>('All');
-  const [filterAssignee, setFilterAssignee] = useState<string>('All');
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
 
   // Modal States
@@ -55,18 +50,6 @@ export const PrepNotesTab: React.FC = () => {
   const [color, setColor] = useState<NoteColor>('yellow');
   const [isPinned, setIsPinned] = useState(false);
 
-  const categories: string[] = [
-    'All',
-    'Preparation',
-    'Document',
-    'Booking',
-    'Meeting',
-    'Emergency & Contacts',
-    'Tips & Packing',
-    'Ideas',
-    'General'
-  ];
-
   const colors: { id: NoteColor; label: string; bgClass: string; borderClass: string }[] = [
     { id: 'yellow', label: 'Yellow', bgClass: 'bg-amber-100', borderClass: 'border-amber-300' },
     { id: 'pink', label: 'Pink', bgClass: 'bg-pink-100', borderClass: 'border-pink-300' },
@@ -80,7 +63,7 @@ export const PrepNotesTab: React.FC = () => {
     setEditingNoteId(null);
     setAgenda('');
     setCategory('Preparation');
-    setDate(new Date().toLocaleDateString('id-ID'));
+    setDate(new Date().toLocaleDateString('en-GB'));
     setStatus('Upcoming');
     setAssignee('All');
     setNotes('');
@@ -117,7 +100,7 @@ export const PrepNotesTab: React.FC = () => {
       editPrepNote(editingNoteId, {
         agenda: agenda.trim(),
         category,
-        date: date.trim() || new Date().toLocaleDateString('id-ID'),
+        date: date.trim() || new Date().toLocaleDateString('en-GB'),
         status,
         assignee,
         notes: notes.trim(),
@@ -130,7 +113,7 @@ export const PrepNotesTab: React.FC = () => {
       addPrepNote({
         agenda: agenda.trim(),
         category,
-        date: date.trim() || new Date().toLocaleDateString('id-ID'),
+        date: date.trim() || new Date().toLocaleDateString('en-GB'),
         status,
         assignee,
         notes: notes.trim(),
@@ -144,12 +127,8 @@ export const PrepNotesTab: React.FC = () => {
     setShowModal(false);
   };
 
-  // Filter notes
+  // Filter notes only by Search Query
   const filteredNotes = prepNotes.filter(n => {
-    if (filterCategory !== 'All' && (n.category || 'General') !== filterCategory) return false;
-    if (filterStatus !== 'All' && n.status !== filterStatus) return false;
-    if (filterAssignee !== 'All' && (n.assignee || 'All') !== filterAssignee) return false;
-
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchAgenda = n.agenda.toLowerCase().includes(q);
@@ -160,16 +139,11 @@ export const PrepNotesTab: React.FC = () => {
       const matchAssignee = (n.assignee || '').toLowerCase().includes(q);
       return matchAgenda || matchNotes || matchCategory || matchTags || matchAuthor || matchAssignee;
     }
-
     return true;
   });
 
   const pinnedNotes = filteredNotes.filter(n => n.isPinned);
   const unpinnedNotes = filteredNotes.filter(n => !n.isPinned);
-
-  const doneCount = prepNotes.filter(n => n.status === 'Done').length;
-  const upcomingCount = prepNotes.filter(n => n.status === 'Upcoming').length;
-  const scheduleCount = prepNotes.filter(n => n.status === 'To Schedule').length;
 
   const getColorClasses = (c?: NoteColor) => {
     switch (c) {
@@ -243,7 +217,7 @@ export const PrepNotesTab: React.FC = () => {
                     ? 'bg-rose-500 text-white shadow-xs'
                     : 'text-slate-400 hover:text-slate-700 hover:bg-black/5'
                 }`}
-                title={note.isPinned ? 'Lepas Sematan' : 'Sematkan Note'}
+                title={note.isPinned ? 'Unpin Note' : 'Pin Note'}
               >
                 <Pin className={`w-3.5 h-3.5 ${note.isPinned ? 'fill-current' : ''}`} />
               </button>
@@ -292,7 +266,7 @@ export const PrepNotesTab: React.FC = () => {
 
         {/* Card Footer */}
         <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500 font-medium">
-          <span>{note.author ? `oleh ${note.author}` : `Catatan Prep`}</span>
+          <span>{note.author ? `by ${note.author}` : `Prep Note`}</span>
 
           <div className="flex items-center space-x-1" onClick={e => e.stopPropagation()}>
             <button
@@ -306,12 +280,12 @@ export const PrepNotesTab: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                if (window.confirm(`Hapus prep note "${note.agenda}"?`)) {
+                if (window.confirm(`Delete prep note "${note.agenda}"?`)) {
                   deletePrepNote(note.id);
                 }
               }}
               className="p-1 text-slate-500 hover:text-rose-600 hover:bg-white/80 rounded-lg transition"
-              title="Hapus Note"
+              title="Delete Note"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>
@@ -332,10 +306,10 @@ export const PrepNotesTab: React.FC = () => {
             <span>Prep Notes & Checklist</span>
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-            Persiapan Trip & Catatan Penting
+            Trip Preparation & Important Notes
           </h2>
           <p className="text-xs text-indigo-400 font-medium mt-0.5">
-            Kelola agenda persiapan, tiket, dokumen, booking, kontak darurat, dan tips packing Bangkok.
+            Manage preparation agendas, tickets, documents, bookings, emergency contacts, and Bangkok packing tips.
           </p>
         </div>
 
@@ -344,107 +318,53 @@ export const PrepNotesTab: React.FC = () => {
           className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-2xl shadow-md flex items-center space-x-1.5 transition shrink-0 self-start md:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Tambah Prep Note</span>
+          <span>Add Prep Note</span>
         </button>
       </div>
 
-      {/* Search & Filters Toolbar */}
-      <div className="bg-white p-4 rounded-3xl border border-indigo-100/80 shadow-sm space-y-3">
+      {/* Toolbar: Search & View Toggle ONLY */}
+      <div className="bg-white p-4 rounded-3xl border border-indigo-100/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
         
-        {/* Top Row: Search input + View Mode + Quick Stats */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          
-          {/* Search Box */}
-          <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Cari agenda, detail, tags, atau assignee..."
-              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-indigo-100 rounded-2xl text-xs font-semibold text-indigo-950 focus:ring-2 focus:ring-indigo-600 focus:outline-none"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-
-          {/* Right Controls: Filters & View Switcher */}
-          <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end">
-            
-            {/* Status Filter Dropdown */}
-            <select
-              value={filterStatus}
-              onChange={e => setFilterStatus(e.target.value)}
-              className="bg-slate-50 border border-indigo-100 px-3 py-2 rounded-2xl text-xs font-bold text-indigo-950 focus:outline-none cursor-pointer"
+        {/* Search Box */}
+        <div className="relative w-full sm:w-96">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search agenda, details, tags, or assignee..."
+            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-indigo-100 rounded-2xl text-xs font-semibold text-indigo-950 focus:ring-2 focus:ring-indigo-600 focus:outline-none"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
             >
-              <option value="All">Semua Status ({prepNotes.length})</option>
-              <option value="Upcoming">Upcoming ({upcomingCount})</option>
-              <option value="To Schedule">To Schedule ({scheduleCount})</option>
-              <option value="Done">Done ({doneCount})</option>
-            </select>
-
-            {/* Assignee Filter Dropdown */}
-            <select
-              value={filterAssignee}
-              onChange={e => setFilterAssignee(e.target.value)}
-              className="bg-slate-50 border border-indigo-100 px-3 py-2 rounded-2xl text-xs font-bold text-indigo-950 focus:outline-none cursor-pointer"
-            >
-              <option value="All">Semua Member</option>
-              {ALL_MEMBERS.map(m => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-
-            {/* View Mode Toggle */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-xl transition ${
-                  viewMode === 'grid' ? 'bg-white text-indigo-950 shadow-xs font-black' : 'text-slate-400'
-                }`}
-                title="Grid Cards View"
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('table')}
-                className={`p-1.5 rounded-xl transition ${
-                  viewMode === 'table' ? 'bg-white text-indigo-950 shadow-xs font-black' : 'text-slate-400'
-                }`}
-                title="Table View"
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-
-          </div>
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
-        {/* Category Filter Chips */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 pt-1 text-xs">
-          <span className="text-slate-400 font-bold shrink-0 mr-1 flex items-center space-x-1">
-            <Filter className="w-3.5 h-3.5" />
-            <span>Kategori:</span>
-          </span>
-          {categories.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setFilterCategory(cat)}
-              className={`px-3 py-1 rounded-xl font-bold whitespace-nowrap transition ${
-                filterCategory === cat
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100/80 text-slate-600 hover:bg-slate-200/80'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200 shrink-0">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded-xl transition ${
+              viewMode === 'grid' ? 'bg-white text-indigo-950 shadow-xs font-black' : 'text-slate-400'
+            }`}
+            title="Grid Cards View"
+          >
+            <Grid className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => setViewMode('table')}
+            className={`p-1.5 rounded-xl transition ${
+              viewMode === 'table' ? 'bg-white text-indigo-950 shadow-xs font-black' : 'text-slate-400'
+            }`}
+            title="Table View"
+          >
+            <List className="w-4 h-4" />
+          </button>
         </div>
 
       </div>
@@ -458,7 +378,7 @@ export const PrepNotesTab: React.FC = () => {
             <div className="space-y-3">
               <div className="flex items-center space-x-2 text-xs font-black text-indigo-950 uppercase tracking-wider">
                 <Pin className="w-4 h-4 text-rose-500 fill-current" />
-                <span>Disematkan ({pinnedNotes.length})</span>
+                <span>Pinned ({pinnedNotes.length})</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {pinnedNotes.map(renderNoteCard)}
@@ -470,7 +390,7 @@ export const PrepNotesTab: React.FC = () => {
           <div className="space-y-3">
             {pinnedNotes.length > 0 && (
               <div className="text-xs font-black text-indigo-950 uppercase tracking-wider pt-2">
-                Catatan & Prep Lainnya ({unpinnedNotes.length})
+                All Notes & Prep ({unpinnedNotes.length})
               </div>
             )}
 
@@ -479,16 +399,16 @@ export const PrepNotesTab: React.FC = () => {
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-400 flex items-center justify-center mx-auto">
                   <CheckSquare className="w-6 h-6" />
                 </div>
-                <h3 className="text-base font-black text-indigo-950">Tidak ada prep note ditemukan</h3>
+                <h3 className="text-base font-black text-indigo-950">No prep notes found</h3>
                 <p className="text-xs text-indigo-400 max-w-sm mx-auto">
-                  Coba ubah kata kunci pencarian atau filter status/kategori, atau buat note baru!
+                  Try changing your search keywords or create a new note!
                 </p>
                 <button
                   onClick={openAddModal}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-2xl text-xs font-bold inline-flex items-center space-x-1"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Buat Prep Note Baru</span>
+                  <span>Create New Prep Note</span>
                 </button>
               </div>
             ) : (
@@ -506,19 +426,19 @@ export const PrepNotesTab: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-indigo-100 text-slate-500 uppercase tracking-wider font-bold">
                 <tr>
-                  <th className="py-3.5 px-4">Tanggal</th>
+                  <th className="py-3.5 px-4">Date</th>
                   <th className="py-3.5 px-4">Agenda / Task</th>
-                  <th className="py-3.5 px-4">Kategori</th>
+                  <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Assignee</th>
                   <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Aksi</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-indigo-50 font-medium">
                 {filteredNotes.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-slate-400">
-                      Tidak ada catatan ditemukan.
+                      No prep notes found.
                     </td>
                   </tr>
                 ) : (
@@ -555,12 +475,18 @@ export const PrepNotesTab: React.FC = () => {
                           <button
                             onClick={() => openEditModal(n)}
                             className="p-1.5 text-slate-400 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition"
+                            title="Edit Note"
                           >
                             <Pencil className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => deletePrepNote(n.id)}
+                            onClick={() => {
+                              if (window.confirm(`Delete prep note "${n.agenda}"?`)) {
+                                deletePrepNote(n.id);
+                              }
+                            }}
                             className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                            title="Delete Note"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -592,7 +518,7 @@ export const PrepNotesTab: React.FC = () => {
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <h3 className="text-base font-black text-indigo-950">
-                  {editingNoteId ? 'Edit Prep Note' : 'Tambah Prep Note Baru'}
+                  {editingNoteId ? 'Edit Prep Note' : 'Add New Prep Note'}
                 </h3>
               </div>
               <button
@@ -608,12 +534,12 @@ export const PrepNotesTab: React.FC = () => {
               
               {/* Agenda / Title */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Judul / Agenda Task *</label>
+                <label className="block font-bold text-slate-700 mb-1">Title / Task Agenda *</label>
                 <input
                   type="text"
                   value={agenda}
                   onChange={e => setAgenda(e.target.value)}
-                  placeholder="e.g. Tukar Baht / Beli e-SIM Thailand / Meeting Outfit"
+                  placeholder="e.g. Currency Exchange / Buy Thailand e-SIM / Outfit Meeting"
                   className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-bold text-indigo-950 focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                   required
                 />
@@ -622,7 +548,7 @@ export const PrepNotesTab: React.FC = () => {
               {/* Category & Status */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Kategori</label>
+                  <label className="block font-bold text-slate-700 mb-1">Category</label>
                   <select
                     value={category}
                     onChange={e => setCategory(e.target.value as PrepCategory)}
@@ -656,13 +582,13 @@ export const PrepNotesTab: React.FC = () => {
               {/* Assignee & Date */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Penanggung Jawab</label>
+                  <label className="block font-bold text-slate-700 mb-1">Assignee</label>
                   <select
                     value={assignee}
                     onChange={e => setAssignee(e.target.value as MemberName | 'All')}
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold text-slate-800 bg-white"
                   >
-                    <option value="All">All Members (Semua)</option>
+                    <option value="All">All Members</option>
                     {ALL_MEMBERS.map(m => (
                       <option key={m} value={m}>{m}</option>
                     ))}
@@ -675,7 +601,7 @@ export const PrepNotesTab: React.FC = () => {
                     type="text"
                     value={date}
                     onChange={e => setDate(e.target.value)}
-                    placeholder="e.g. 28/10/26"
+                    placeholder="e.g. 28/10/2026"
                     className="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold text-slate-800"
                   />
                 </div>
@@ -683,11 +609,11 @@ export const PrepNotesTab: React.FC = () => {
 
               {/* Content / Detail Notes */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Isi Catatan / Detail Notes</label>
+                <label className="block font-bold text-slate-700 mb-1">Notes / Detail Content</label>
                 <textarea
                   value={notes}
                   onChange={e => setNotes(e.target.value)}
-                  placeholder="Tulis instruksi, nomor kontak, tips, link booking, atau catatan detail..."
+                  placeholder="Write instructions, contact numbers, tips, booking links, or detailed notes..."
                   rows={4}
                   className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl font-medium text-slate-800 focus:ring-2 focus:ring-indigo-600 focus:outline-none"
                 />
@@ -695,19 +621,19 @@ export const PrepNotesTab: React.FC = () => {
 
               {/* Tags */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Tags (dipisahkan koma)</label>
+                <label className="block font-bold text-slate-700 mb-1">Tags (comma-separated)</label>
                 <input
                   type="text"
                   value={tagsInput}
                   onChange={e => setTagsInput(e.target.value)}
-                  placeholder="e.g. eSIM, Internet, Penting"
+                  placeholder="e.g. eSIM, Internet, Important"
                   className="w-full px-3.5 py-2 border border-slate-300 rounded-xl font-medium text-slate-800"
                 />
               </div>
 
               {/* Color Picker */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1.5">Warna Kartu</label>
+                <label className="block font-bold text-slate-700 mb-1.5">Card Color</label>
                 <div className="flex items-center space-x-2">
                   {colors.map(c => (
                     <button
@@ -733,7 +659,7 @@ export const PrepNotesTab: React.FC = () => {
                   className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
                 />
                 <label htmlFor="pin-checkbox" className="font-bold text-slate-700 cursor-pointer select-none">
-                  Sematkan di Atas (Pin Note)
+                  Pin to Top
                 </label>
               </div>
 
@@ -744,13 +670,13 @@ export const PrepNotesTab: React.FC = () => {
                   onClick={() => setShowModal(false)}
                   className="px-4 py-2 font-bold text-slate-600 hover:bg-slate-100 rounded-xl"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
                 >
-                  Simpan Note
+                  Save Note
                 </button>
               </div>
 
@@ -800,7 +726,7 @@ export const PrepNotesTab: React.FC = () => {
             <div className="space-y-1">
               <span className="text-xs font-bold text-slate-500">Detail & Notes:</span>
               <p className="text-xs text-slate-800 font-medium whitespace-pre-wrap leading-relaxed bg-indigo-50/40 p-3.5 rounded-2xl border border-indigo-100/60 max-h-60 overflow-y-auto">
-                {activeDetailNote.notes || 'Tidak ada detail tambahan.'}
+                {activeDetailNote.notes || 'No additional details provided.'}
               </p>
             </div>
 
@@ -821,14 +747,14 @@ export const PrepNotesTab: React.FC = () => {
                 onClick={() => {
                   const noteToDelete = activeDetailNote;
                   setActiveDetailNote(null);
-                  if (window.confirm(`Hapus prep note "${noteToDelete.agenda}"?`)) {
+                  if (window.confirm(`Delete prep note "${noteToDelete.agenda}"?`)) {
                     deletePrepNote(noteToDelete.id);
                   }
                 }}
                 className="px-3 py-1.5 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-bold flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Hapus</span>
+                <span>Delete</span>
               </button>
 
               <button
