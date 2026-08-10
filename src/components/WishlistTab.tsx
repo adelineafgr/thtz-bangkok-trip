@@ -20,7 +20,9 @@ import {
   Copy,
   Download,
   CheckCircle2,
-  Filter
+  Filter,
+  ExternalLink,
+  Globe
 } from 'lucide-react';
 
 export const WishlistTab: React.FC = () => {
@@ -47,17 +49,11 @@ export const WishlistTab: React.FC = () => {
   const [estimatedPriceTHB, setEstimatedPriceTHB] = useState('');
   const [notes, setNotes] = useState('');
   const [location, setLocation] = useState('');
+  const [mapsUrl, setMapsUrl] = useState('');
+  const [linkUrl, setLinkUrl] = useState('');
   const [proposedBy, setProposedBy] = useState<MemberName>(currentMember);
 
   const categories: WishlistCategory[] = ['Shopping', 'Photo Spot', 'Activity', 'Café', 'Dining'];
-  const voteFilterOptions: { label: string; value: number | 'all' }[] = [
-    { label: 'All Votes', value: 'all' },
-    { label: '1+ Vote', value: 1 },
-    { label: '2+ Votes', value: 2 },
-    { label: '3+ Votes', value: 3 },
-    { label: '4+ Votes', value: 4 },
-    { label: '5 Votes', value: 5 }
-  ];
 
   // Filter logic
   const filteredWishlist = wishlist.filter(item => {
@@ -80,6 +76,8 @@ export const WishlistTab: React.FC = () => {
     setEstimatedPriceTHB('');
     setNotes('');
     setLocation('');
+    setMapsUrl('');
+    setLinkUrl('');
     setProposedBy(currentMember);
     setShowAddModal(true);
   };
@@ -91,6 +89,8 @@ export const WishlistTab: React.FC = () => {
     setEstimatedPriceTHB(item.estimatedPriceTHB ? String(item.estimatedPriceTHB) : '');
     setNotes(item.notes || '');
     setLocation(item.location || '');
+    setMapsUrl(item.mapsUrl || '');
+    setLinkUrl(item.linkUrl || '');
     setProposedBy(item.proposedBy || currentMember);
     setShowAddModal(true);
   };
@@ -108,6 +108,8 @@ export const WishlistTab: React.FC = () => {
         estimatedPriceTHB: thbVal,
         notes,
         location,
+        mapsUrl: mapsUrl.trim() || undefined,
+        linkUrl: linkUrl.trim() || undefined,
         proposedBy
       });
     } else {
@@ -117,6 +119,8 @@ export const WishlistTab: React.FC = () => {
         estimatedPriceTHB: thbVal,
         notes,
         location,
+        mapsUrl: mapsUrl.trim() || undefined,
+        linkUrl: linkUrl.trim() || undefined,
         proposedBy,
         status: 'Want to Go'
       });
@@ -126,6 +130,8 @@ export const WishlistTab: React.FC = () => {
     setEstimatedPriceTHB('');
     setNotes('');
     setLocation('');
+    setMapsUrl('');
+    setLinkUrl('');
     setShowAddModal(false);
   };
 
@@ -362,23 +368,51 @@ export const WishlistTab: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Title */}
+                    {/* Title with optional embedded link */}
                     <h3 className="text-sm font-bold text-slate-900 leading-snug mb-1">
-                      {item.title}
+                      {item.linkUrl ? (
+                        <a
+                          href={item.linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-950 hover:text-indigo-600 hover:underline inline-flex items-center gap-1 group/title transition"
+                          title="Open attached website / reference"
+                        >
+                          <span>{item.title}</span>
+                          <ExternalLink className="w-3.5 h-3.5 text-indigo-500 shrink-0 group-hover/title:translate-x-0.5 transition" />
+                        </a>
+                      ) : (
+                        <span>{item.title}</span>
+                      )}
                     </h3>
 
                     {item.notes && (
-                      <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 mb-3 leading-relaxed">
+                      <p className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 mb-2.5 leading-relaxed">
                         {item.notes}
                       </p>
                     )}
 
-                    {item.location && (
-                      <div className="flex items-center space-x-1 text-xs text-slate-500 mb-3">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{item.location}</span>
-                      </div>
-                    )}
+                    {/* Google Maps link */}
+                    {(() => {
+                      const finalMapsUrl = item.mapsUrl || (item.location ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title + ' ' + item.location)}` : null);
+                      if (!finalMapsUrl && !item.location) return null;
+
+                      return (
+                        <div className="mb-3">
+                          <a
+                            href={finalMapsUrl || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center space-x-1.5 text-xs text-rose-600 hover:text-rose-800 hover:underline font-bold transition group/map"
+                            title="Open location in Google Maps"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0 group-hover/map:scale-110 transition" />
+                            <span className="truncate">{item.location || 'View on Google Maps'}</span>
+                            <ExternalLink className="w-3 h-3 text-rose-400 shrink-0" />
+                          </a>
+                        </div>
+                      );
+                    })()}
 
                     {/* Votes List */}
                     <div className="pt-2 pb-2 border-t border-slate-100 flex items-center justify-between text-xs my-1">
@@ -485,9 +519,22 @@ export const WishlistTab: React.FC = () => {
                       <tr key={item.id} className="hover:bg-slate-50/60 transition">
                         <td className="py-3.5 px-4 font-mono text-slate-400">{idx + 1}</td>
                         <td className="py-3.5 px-4 font-bold text-slate-900">
-                          {item.title}
+                          {item.linkUrl ? (
+                            <a
+                              href={item.linkUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-indigo-950 hover:text-indigo-600 hover:underline inline-flex items-center gap-1 group/title"
+                              title="Open attached website / reference"
+                            >
+                              <span>{item.title}</span>
+                              <ExternalLink className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            </a>
+                          ) : (
+                            <span>{item.title}</span>
+                          )}
                           {item.notes && (
-                            <span className="block text-[10px] text-slate-400 font-normal">
+                            <span className="block text-[10px] text-slate-400 font-normal mt-0.5">
                               {item.notes}
                             </span>
                           )}
@@ -498,7 +545,25 @@ export const WishlistTab: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-slate-600">
-                          {item.location || '-'}
+                          {(() => {
+                            const finalMapsUrl = item.mapsUrl || (item.location ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.title + ' ' + item.location)}` : null);
+                            if (finalMapsUrl) {
+                              return (
+                                <a
+                                  href={finalMapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-rose-600 hover:text-rose-800 hover:underline inline-flex items-center space-x-1 font-bold text-xs"
+                                  title="Open in Google Maps"
+                                >
+                                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                                  <span>{item.location || 'View Map'}</span>
+                                  <ExternalLink className="w-3 h-3 text-rose-400 shrink-0" />
+                                </a>
+                              );
+                            }
+                            return <span>{item.location || '-'}</span>;
+                          })()}
                         </td>
                         <td className="py-3.5 px-4">
                           <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 text-[10px] font-bold">
@@ -636,6 +701,38 @@ export const WishlistTab: React.FC = () => {
                   placeholder="e.g. Siam Square / Songwat Road"
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Google Maps URL (Optional)</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="url"
+                    value={mapsUrl}
+                    onChange={e => setMapsUrl(e.target.value)}
+                    placeholder="https://maps.google.com/..."
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Attached Link / Website (Optional)</span>
+                </label>
+                <div className="relative">
+                  <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="url"
+                    value={linkUrl}
+                    onChange={e => setLinkUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div>
