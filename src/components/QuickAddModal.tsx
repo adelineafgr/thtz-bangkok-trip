@@ -257,23 +257,25 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({ isOpen, onClose })
           {activeType === 'prep' && (
             <>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Task / Agenda *</label>
+                <label className="block font-semibold text-slate-700 mb-1">Prep Note Title *</label>
                 <input
                   type="text"
                   value={prepAgenda}
                   onChange={e => setPrepAgenda(e.target.value)}
-                  placeholder="e.g. Tukar Baht / Beli eSIM"
+                  placeholder="e.g. Exchange Baht / Purchase eSIM"
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium focus:ring-2 focus:ring-amber-500"
                   required
                 />
               </div>
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Target Date</label>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Reminder Date <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
+                </label>
                 <input
                   type="text"
                   value={prepDate}
                   onChange={e => setPrepDate(e.target.value)}
-                  placeholder="e.g. 28/10/26"
+                  placeholder="e.g. Oct 28, 2026 or Leave empty"
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl font-medium"
                 />
               </div>
