@@ -6,8 +6,7 @@ import {
   ItineraryDay,
   AccommodationOption,
   MemberContribution,
-  EssentialDocument,
-  RandomNote
+  EssentialDocument
 } from '../types';
 
 export const DEFAULT_EXCHANGE_RATE_IDR_PER_THB = 561.12;
@@ -23,93 +22,159 @@ export const DEFAULT_MEMBERS_CONTRIBUTIONS: MemberContribution[] = [
 export const INITIAL_PREPARATION_NOTES: PreparationNote[] = [
   {
     id: 'prep-1',
-    date: '02/08/2026',
+    date: '02/08/26',
     agenda: 'Online Kick-off Meeting',
-    notes: 'Agenda: Finalize trip dates, flight reservations, and hotel bookings.',
+    notes: 'Agenda: tgl berangkat, pesan pesawat, pesan hotel',
     status: 'Done',
     assignee: 'All',
-    category: 'Meeting'
+    category: 'Meeting',
+    color: 'yellow',
+    isPinned: false,
+    tags: ['Rapat', 'Trip'],
+    author: 'Abit'
   },
   {
     id: 'prep-2',
-    date: '03/08/2026',
-    agenda: 'Book Pace Walking Shoes',
-    notes: 'Deposit of 2,000 THB paid via Shared Pocket.',
+    date: '03/08/26',
+    agenda: 'Booking Pace Shoes',
+    notes: 'DP 2000 THB paid via Shared Pocket',
     status: 'Done',
     assignee: 'Aisha',
-    category: 'Booking'
+    category: 'Booking',
+    color: 'blue',
+    isPinned: false,
+    tags: ['Sepatu', 'DP'],
+    author: 'Aisha'
   },
   {
     id: 'prep-3',
-    date: '08/08/2026',
-    agenda: 'Purchase Flight Tickets',
-    notes: 'Booking deadline: August 8 for all group members.',
+    date: '08/08/26',
+    agenda: 'Beli tiket pesawat',
+    notes: 'Booking deadline: August 8 (except Bila)',
     status: 'Upcoming',
     assignee: 'All',
-    category: 'Booking'
+    category: 'Booking',
+    color: 'amber',
+    isPinned: true,
+    tags: ['Tiket', 'Penting'],
+    author: 'Abit'
   },
   {
     id: 'prep-4',
-    date: '',
-    agenda: 'Finalize Hotel / Airbnb Accommodation',
-    notes: 'Compare Khlong Toei rental vs Pratunam studio apartment.',
+    date: '08/08/26',
+    agenda: 'Booking hotel/Airbnb',
+    notes: 'Finalize choice between Khlong Toei vs Pratunam',
     status: 'To Schedule',
     assignee: 'Alin',
-    category: 'Booking'
+    category: 'Booking',
+    color: 'purple',
+    isPinned: true,
+    tags: ['Hotel', 'Airbnb'],
+    author: 'Alin'
   },
   {
     id: 'prep-5',
-    date: '27/10/2026',
-    agenda: 'Fill TDAC Arrival Form',
-    notes: '⚠️ MUST BE COMPLETED WITHIN 3 DAYS BEFORE LANDING IN BANGKOK ⚠️',
+    date: '27/10/26',
+    agenda: 'Isi TDAC Form',
+    notes: '⚠️ DIISI MAKSIMAL 3 HARI SEBELUM SAMPAI DI BKK ⚠️',
     status: 'Upcoming',
     assignee: 'All',
-    category: 'Document'
+    category: 'Document',
+    color: 'pink',
+    isPinned: true,
+    tags: ['Form', 'Wajib', 'BKK'],
+    author: 'Aisha'
   },
   {
     id: 'prep-6',
-    date: '28/10/2026',
-    agenda: 'Offline Itinerary & Outfit Meeting',
-    notes: 'Final review of color palette, baggage allowances, and currency exchange.',
+    date: '28/10/26',
+    agenda: 'Offline Itinerary Meeting',
+    notes: 'Final review outfit, baggage limit & money exchange',
     status: 'To Schedule',
     assignee: 'All',
-    category: 'Meeting'
+    category: 'Meeting',
+    color: 'green',
+    isPinned: false,
+    tags: ['Rapat', 'Outfit'],
+    author: 'Risha'
   },
   {
     id: 'prep-7',
-    date: '30/09/2026',
-    agenda: 'Apply for Work Leave',
-    notes: 'Submit annual leave request for Oct 30 - Nov 4, 2026 at respective offices.',
+    date: '30/09/26',
+    agenda: 'Ambil Cuti',
+    notes: 'Mengajukan cuti 30 Oct - 4 Nov 2026 di kantor masing-masing',
     status: 'Upcoming',
     assignee: 'All',
-    category: 'Preparation'
+    category: 'Preparation',
+    color: 'yellow',
+    isPinned: false,
+    tags: ['Cuti', 'Kantor'],
+    author: 'Bila'
   },
   {
     id: 'prep-8',
-    date: '',
-    agenda: 'Currency Exchange (Cash Baht)',
-    notes: 'Exchange IDR to THB cash for night markets and street food stalls.',
+    date: '25/10/26',
+    agenda: 'Tukar Uang (Cash Baht)',
+    notes: 'Tukar IDR ke THB secukupnya untuk street food & belanja',
     status: 'To Schedule',
     assignee: 'Bila',
-    category: 'Preparation'
+    category: 'Preparation',
+    color: 'amber',
+    isPinned: false,
+    tags: ['Uang', 'Baht', 'Cash'],
+    author: 'Bila'
   },
   {
     id: 'prep-9',
-    date: '28/10/2026',
-    agenda: 'Activate Roaming / Purchase 5-Day e-SIM',
-    notes: 'Buy 5-day unlimited Thailand e-SIM data package (DTAC / AIS).',
+    date: '28/10/26',
+    agenda: 'Aktifkan roaming / beli e-SIM',
+    notes: 'Beli e-SIM Thailand Unlimited 5 Days (DTAC / AIS)',
     status: 'To Schedule',
     assignee: 'Risha',
-    category: 'Preparation'
+    category: 'Preparation',
+    color: 'blue',
+    isPinned: false,
+    tags: ['eSIM', 'Internet'],
+    author: 'Risha'
   },
   {
     id: 'prep-10',
-    date: '',
-    agenda: 'Self Care & Salon Session',
-    notes: 'Nail art, spa, and hair styling before departure!',
+    date: '14/09/26',
+    agenda: 'Emergency Contact & Info Darurat',
+    notes: '1. KBRI Bangkok: +66 2 247 0123\n2. Tourist Police: 1155\n3. Ambulans / Darurat: 1669',
+    status: 'Done',
+    assignee: 'All',
+    category: 'Emergency & Contacts',
+    color: 'pink',
+    isPinned: true,
+    tags: ['Darurat', 'Kontak', 'Penting'],
+    author: 'Abit'
+  },
+  {
+    id: 'prep-11',
+    date: '20/10/26',
+    agenda: 'Tips Transportasi & TukTuk',
+    notes: '• Nawar TukTuk minimal 30-40% dari harga awal supir.\n• Pakai aplikasi Grab / Bolt / InDrive untuk cek estimasi harga wajar.\n• Naik BTS / MRT lebih cepat bebas macet jam sibuk sore (17.00 - 19.00).',
     status: 'Upcoming',
     assignee: 'All',
-    category: 'Preparation'
+    category: 'Tips & Packing',
+    color: 'yellow',
+    isPinned: false,
+    tags: ['Transport', 'TukTuk', 'Tips'],
+    author: 'Aisha'
+  },
+  {
+    id: 'prep-12',
+    date: '24/10/26',
+    agenda: 'Colokan Listrik & Powerbank Packing',
+    notes: 'Thailand pakai colokan Tipe A, B, dan C (220V). Colokan Indonesia 2 kaki bulat (Tipe C) BISA dipakai langsung, tapi wajib bawa terminal colokan cabang biar bisa charge 5 HP + powerbank barengan di hotel!',
+    status: 'Upcoming',
+    assignee: 'Bila',
+    category: 'Tips & Packing',
+    color: 'purple',
+    isPinned: false,
+    tags: ['Elektronik', 'Packing'],
+    author: 'Bila'
   }
 ];
 
@@ -124,7 +189,9 @@ export const INITIAL_WISHLIST: WishlistItem[] = [
     status: 'Want to Go',
     proposedBy: 'Aisha',
     notes: 'Banyak thrift vintage, baju lucu, souvenir & mango sticky rice',
-    location: 'Kamphaeng Phet 2 Rd, Chatuchak, Bangkok'
+    location: 'Kamphaeng Phet 2 Rd, Chatuchak, Bangkok',
+    mapsUrl: 'https://maps.google.com/?q=Chatuchak+Weekend+Market+Bangkok',
+    linkUrl: 'https://www.chatuchakmarket.org'
   },
   {
     id: 'wish-2',
@@ -136,7 +203,8 @@ export const INITIAL_WISHLIST: WishlistItem[] = [
     status: 'Want to Go',
     proposedBy: 'Abit',
     notes: 'Sewa sepeda & foto-foto aesthetic sore hari dekat lake bridge',
-    location: 'Sukhumvit Rd, Khlong Toei, Bangkok'
+    location: 'Sukhumvit Rd, Khlong Toei, Bangkok',
+    mapsUrl: 'https://maps.google.com/?q=Benjakitti+Park+Bangkok'
   },
   {
     id: 'wish-3',
@@ -668,64 +736,6 @@ export const INITIAL_ESSENTIAL_DOCUMENTS: EssentialDocument[] = [
     name: 'Asuransi Perjalanan & Booking Hotel',
     description: 'Bukti reservasi akomodasi & asuransi perjalanan.',
     readyMembers: ['Abit', 'Aisha', 'Alin', 'Bila']
-  }
-];
-
-export const INITIAL_RANDOM_NOTES: RandomNote[] = [
-  {
-    id: 'note-1',
-    title: 'Emergency Contact Bangkok',
-    content: '1. KBRI Bangkok: +66 2 247 0123\n2. Tourist Police: 1155\n3. Ambulans / Darurat: 1669\n4. CS e-SIM / Roaming Support: +62 811 1234 5678',
-    category: 'Emergency & Contacts',
-    color: 'pink',
-    author: 'Abit',
-    isPinned: true,
-    createdAt: '2026-08-01',
-    tags: ['Darurat', 'Kontak', 'Penting']
-  },
-  {
-    id: 'note-2',
-    title: 'Tips Naik TukTuk & Transportasi',
-    content: '• Nawar TukTuk minimal 30-40% dari harga penawaran awal supir.\n• Pakai aplikasi Grab / Bolt / InDrive untuk cek estimasi harga wajar.\n• Naik BTS / MRT lebih cepat bebas macet jam sibuk sore (17.00 - 19.00).',
-    category: 'Tips & Packing',
-    color: 'yellow',
-    author: 'Aisha',
-    isPinned: true,
-    createdAt: '2026-08-03',
-    tags: ['Transport', 'TukTuk', 'Tips']
-  },
-  {
-    id: 'note-3',
-    title: 'Ide Palette Warna Baju (OOTD Group)',
-    content: 'Day 1 (Wat Arun): Whites & Earthy Cream\nDay 2 (Chatuchak & Cafe): Bright Colorful Casual / Pastel\nDay 3 (Yaowarat Night Market): Chic Neon / Streetwear Black',
-    category: 'Ideas',
-    color: 'purple',
-    author: 'Alin',
-    isPinned: false,
-    createdAt: '2026-08-05',
-    tags: ['OOTD', 'Outfit', 'Foto']
-  },
-  {
-    id: 'note-4',
-    title: 'Colokan Listrik & Powerbank',
-    content: 'Thailand pakai colokan Tipe A, B, dan C (220V). Colokan Indonesia 2 kaki bulat (Tipe C) BISA dipakai langsung, tapi wajib bawa terminal colokan cabang biar bisa charge 5 HP + powerbank barengan di hotel!',
-    category: 'Tips & Packing',
-    color: 'blue',
-    author: 'Bila',
-    isPinned: false,
-    createdAt: '2026-08-06',
-    tags: ['Elektronik', 'Packing']
-  },
-  {
-    id: 'note-5',
-    title: 'Catatan Titipan Oleh-oleh',
-    content: '• Thai Tea Chatramue pouch merah & hijau\n• Snack rumput laut Tao Kae Noi jumbo\n• Inhaler Poy-Sian / Pastel Brand (1 pack isi 6)\n• Kaos gajah Chatuchak & Baju Bangkok',
-    category: 'General',
-    color: 'green',
-    author: 'Risha',
-    isPinned: false,
-    createdAt: '2026-08-08',
-    tags: ['Belanja', 'Oleh-oleh']
   }
 ];
 
