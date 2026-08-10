@@ -449,7 +449,7 @@ export const ItineraryTab: React.FC = () => {
         </div>
       </div>
 
-      {/* CREATE / EDIT ACTIVITY MODAL */}
+      {/* FORM ACTIVITY MODAL */}
       {showActivityModal && (
         <div
           onClick={() => setShowActivityModal(false)}
