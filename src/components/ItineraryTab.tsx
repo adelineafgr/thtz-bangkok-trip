@@ -646,10 +646,34 @@ export const ItineraryTab: React.FC = () => {
             >
               
               <div className="flex items-start justify-between pb-3 border-b border-slate-100">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 flex-wrap gap-1.5">
                   <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getCategoryBg(detailActivity.category)}`}>
                     {detailActivity.category}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      toggleItineraryActivityDone(detailDayNum, detailActivity.id);
+                      setDetailActivity(prev => prev ? { ...prev, isDone: !prev.isDone } : null);
+                    }}
+                    className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black cursor-pointer transition ${
+                      detailActivity.isDone
+                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                        : 'bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    {detailActivity.isDone ? (
+                      <>
+                        <CheckCircle className="w-3 h-3 text-emerald-600" />
+                        <span>Completed</span>
+                      </>
+                    ) : (
+                      <>
+                        <Circle className="w-3 h-3 text-slate-400" />
+                        <span>Mark as Done</span>
+                      </>
+                    )}
+                  </button>
                 </div>
                 <button
                   onClick={() => setShowDetailModal(false)}
