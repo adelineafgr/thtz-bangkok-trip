@@ -534,11 +534,11 @@ export const ItineraryTab: React.FC = () => {
                   className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
                 >
                   <option value="Sightseeing">Sightseeing</option>
-                  <option value="Food">Food / Culinary</option>
+                  <option value="Food">Culinary</option>
                   <option value="Shopping">Shopping</option>
                   <option value="Transport">Transport</option>
-                  <option value="Activity">Activity / Experience</option>
-                  <option value="Rest">Rest / Hotel</option>
+                  <option value="Activity">Activity</option>
+                  <option value="Rest">Rest</option>
                 </select>
               </div>
 
