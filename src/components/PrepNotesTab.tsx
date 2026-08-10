@@ -1,459 +1,414 @@
 import React, { useState } from 'react';
 import { useTrip } from '../context/TripContext';
-import { NoteStatus, MemberName, ALL_MEMBERS } from '../types';
+import { RandomNote, RandomNoteCategory, NoteColor, MemberName, ALL_MEMBERS } from '../types';
 import {
-  CheckSquare,
-  Clock,
+  FileText,
   Plus,
+  Pin,
+  Search,
   Trash2,
-  AlertCircle,
-  CheckCircle2,
-  Filter,
   Pencil,
-  X
+  Tag,
+  X,
+  Sparkles,
+  Calendar as CalendarIcon,
+  CheckCircle2,
+  Circle,
+  Clock
 } from 'lucide-react';
 
-export const PrepNotesTab: React.FC = () => {
+export const NotesTab: React.FC = () => {
   const {
-    prepNotes,
-    addPrepNote,
-    editPrepNote,
-    updatePrepNoteStatus,
-    deletePrepNote
+    randomNotes,
+    addRandomNote,
+    editRandomNote,
+    deleteRandomNote,
+    togglePinRandomNote,
+    toggleCompleteRandomNote,
+    currentMember
   } = useTrip();
 
-  const [filterStatus, setFilterStatus] = useState<'All' | NoteStatus>('All');
-  const [filterAssignee, setFilterAssignee] = useState<MemberName | 'All'>('All');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [activeDetailNote, setActiveDetailNote] = useState<any | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
-  // Form
-  const [date, setDate] = useState('');
-  const [agenda, setAgenda] = useState('');
-  const [notes, setNotes] = useState('');
-  const [status, setStatus] = useState<NoteStatus>('Upcoming');
+  // Form State
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [category, setCategory] = useState<RandomNoteCategory>('General');
+  const [color, setColor] = useState<NoteColor>('yellow');
+  const [author, setAuthor] = useState<MemberName>(currentMember);
   const [assignee, setAssignee] = useState<MemberName | 'All'>('All');
-  const [category, setCategory] = useState<'Document' | 'Booking' | 'Meeting' | 'Preparation'>('Preparation');
+  const [reminderDate, setReminderDate] = useState('');
+  const [isPinned, setIsPinned] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [tagsInput, setTagsInput] = useState('');
+
+  const colorOptions: { key: NoteColor; label: string; bgClass: string; borderClass: string }[] = [
+    { key: 'yellow', label: 'Pastel Yellow', bgClass: 'bg-amber-100', borderClass: 'border-amber-300' },
+    { key: 'pink', label: 'Pastel Pink', bgClass: 'bg-rose-100', borderClass: 'border-rose-300' },
+    { key: 'blue', label: 'Pastel Blue', bgClass: 'bg-sky-100', borderClass: 'border-sky-300' },
+    { key: 'green', label: 'Pastel Green', bgClass: 'bg-emerald-100', borderClass: 'border-emerald-300' },
+    { key: 'purple', label: 'Pastel Purple', bgClass: 'bg-purple-100', borderClass: 'border-purple-300' },
+    { key: 'amber', label: 'Pastel Orange', bgClass: 'bg-orange-100', borderClass: 'border-orange-300' }
+  ];
 
   const openAddModal = () => {
-    setEditingItemId(null);
-    setDate('');
-    setAgenda('');
-    setNotes('');
-    setStatus('Upcoming');
+    setEditingNoteId(null);
+    setTitle('');
+    setContent('');
+    setCategory('General');
+    setColor('yellow');
+    setAuthor(currentMember);
     setAssignee('All');
-    setCategory('Preparation');
-    setShowAddModal(true);
+    setReminderDate('');
+    setIsPinned(false);
+    setIsCompleted(false);
+    setTagsInput('');
+    setShowModal(true);
   };
 
-  const openEditModal = (note: any) => {
-    setEditingItemId(note.id);
-    setDate(note.date || '');
-    setAgenda(note.agenda || '');
-    setNotes(note.notes || '');
-    setStatus(note.status || 'Upcoming');
+  const openEditModal = (note: RandomNote) => {
+    setEditingNoteId(note.id);
+    setTitle(note.title);
+    setContent(note.content);
+    setCategory(note.category);
+    setColor(note.color || 'yellow');
+    setAuthor(note.author);
     setAssignee(note.assignee || 'All');
-    setCategory(note.category || 'Preparation');
-    setShowAddModal(true);
+    setReminderDate(note.reminderDate || '');
+    setIsPinned(!!note.isPinned);
+    setIsCompleted(!!note.isCompleted);
+    setTagsInput(note.tags ? note.tags.join(', ') : '');
+    setShowModal(true);
   };
 
-  const parseDateTimestamp = (dateStr: string): number => {
-    if (!dateStr || !dateStr.trim()) return 9999999999999;
-    const cleanStr = dateStr.trim();
-    const parts = cleanStr.split(/[\/\-]/);
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        const day = parseInt(parts[2], 10);
-        const d = new Date(year, month, day);
-        if (!isNaN(d.getTime())) return d.getTime();
-      } else {
-        const day = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1;
-        let year = parseInt(parts[2], 10);
-        if (year < 100) year += 2000;
-        const d = new Date(year, month, day);
-        if (!isNaN(d.getTime())) return d.getTime();
-      }
-    }
-    const timestamp = new Date(cleanStr).getTime();
-    return isNaN(timestamp) ? 9999999999999 : timestamp;
-  };
-
-  const filteredNotes = prepNotes.filter(n => {
-    if (filterStatus !== 'All' && n.status !== filterStatus) return false;
-    if (filterAssignee !== 'All' && (n.assignee || 'All') !== filterAssignee) return false;
-    return true;
-  });
-
-  const sortedNotes = [...filteredNotes].sort((a, b) => {
-    // Done items move to the bottom
-    const aIsDone = a.status === 'Done';
-    const bIsDone = b.status === 'Done';
-    if (aIsDone !== bIsDone) {
-      return aIsDone ? 1 : -1;
-    }
-
-    // Sort by nearest deadline (earliest date timestamp first)
-    const timeA = parseDateTimestamp(a.date);
-    const timeB = parseDateTimestamp(b.date);
-    if (timeA !== timeB) {
-      return timeA - timeB;
-    }
-
-    // Priority: Upcoming before To Schedule
-    if (a.status !== b.status) {
-      if (a.status === 'Upcoming') return -1;
-      if (b.status === 'Upcoming') return 1;
-    }
-
-    return 0;
-  });
-
-  const doneCount = prepNotes.filter(n => n.status === 'Done').length;
-  const upcomingCount = prepNotes.filter(n => n.status === 'Upcoming').length;
-  const scheduleCount = prepNotes.filter(n => n.status === 'To Schedule').length;
-
-  const handleSaveSubmit = (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!agenda.trim()) return;
+    if (!title.trim() || !content.trim()) return;
 
-    if (editingItemId) {
-      editPrepNote(editingItemId, {
-        date: date || new Date().toLocaleDateString('id-ID'),
-        agenda,
-        notes,
-        status,
-        assignee,
-        category
-      });
+    const parsedTags = tagsInput
+      .split(',')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    const notePayload = {
+      title: title.trim(),
+      content: content.trim(),
+      category,
+      color,
+      author,
+      assignee,
+      reminderDate: reminderDate ? reminderDate : undefined,
+      isPinned,
+      isCompleted,
+      tags: parsedTags
+    };
+
+    if (editingNoteId) {
+      editRandomNote(editingNoteId, notePayload);
     } else {
-      addPrepNote({
-        date: date || new Date().toLocaleDateString('id-ID'),
-        agenda,
-        notes,
-        status,
-        assignee,
-        category
-      });
+      addRandomNote(notePayload);
     }
 
-    setDate('');
-    setAgenda('');
-    setNotes('');
-    setShowAddModal(false);
+    setShowModal(false);
   };
 
-  const getStatusBadge = (s: NoteStatus) => {
-    switch (s) {
-      case 'Done':
-        return (
-          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3" />
-            <span>Done</span>
-          </span>
-        );
-      case 'Upcoming':
-        return (
-          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-            <Clock className="w-3 h-3" />
-            <span>Upcoming</span>
-          </span>
-        );
-      case 'To Schedule':
-        return (
-          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-            <AlertCircle className="w-3 h-3" />
-            <span>To Schedule</span>
-          </span>
-        );
+  // Metrics
+  const totalCount = randomNotes.length;
+  const pinnedCount = randomNotes.filter(n => n.isPinned).length;
+  const tasksCount = randomNotes.filter(n => n.category === 'Tasks & To-Do' || n.isCompleted !== undefined).length;
+  const completedTasksCount = randomNotes.filter(n => n.isCompleted).length;
+  const reminderCount = randomNotes.filter(n => !!n.reminderDate).length;
+
+  // Filtering
+  const filteredNotes = randomNotes.filter(n => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      n.title.toLowerCase().includes(term) ||
+      n.content.toLowerCase().includes(term) ||
+      n.category.toLowerCase().includes(term) ||
+      n.author.toLowerCase().includes(term) ||
+      (n.assignee && n.assignee.toLowerCase().includes(term)) ||
+      (n.tags && n.tags.some(t => t.toLowerCase().includes(term)))
+    );
+  });
+
+  const pinnedNotes = filteredNotes.filter(n => n.isPinned);
+  const otherNotes = filteredNotes.filter(n => !n.isPinned);
+
+  const getCardStyle = (c: NoteColor) => {
+    switch (c) {
+      case 'yellow':
+        return 'bg-amber-50/90 border-amber-200/90 text-amber-950 hover:border-amber-300';
+      case 'pink':
+        return 'bg-rose-50/90 border-rose-200/90 text-rose-950 hover:border-rose-300';
+      case 'blue':
+        return 'bg-sky-50/90 border-sky-200/90 text-sky-950 hover:border-sky-300';
+      case 'green':
+        return 'bg-emerald-50/90 border-emerald-200/90 text-emerald-950 hover:border-emerald-300';
+      case 'purple':
+        return 'bg-purple-50/90 border-purple-200/90 text-purple-950 hover:border-purple-300';
+      case 'amber':
+        return 'bg-orange-50/90 border-orange-200/90 text-orange-950 hover:border-orange-300';
+      default:
+        return 'bg-slate-50 border-slate-200 text-slate-900';
+    }
+  };
+
+  const getCategoryBadgeStyle = (cat: RandomNoteCategory) => {
+    switch (cat) {
+      case 'Tasks & To-Do':
+        return 'bg-rose-200/90 text-rose-950 font-black';
+      case 'Emergency & Contacts':
+        return 'bg-red-200/90 text-red-950 font-black';
+      case 'Tips & Packing':
+        return 'bg-sky-200/90 text-sky-950 font-bold';
+      case 'Ideas':
+        return 'bg-purple-200/90 text-purple-950 font-bold';
+      case 'Food & Places':
+        return 'bg-amber-200/90 text-amber-950 font-bold';
+      case 'Documents & Bookings':
+        return 'bg-emerald-200/90 text-emerald-950 font-bold';
+      default:
+        return 'bg-indigo-100/90 text-indigo-950 font-bold';
     }
   };
 
   return (
     <div className="space-y-6 pb-20">
       
-      {/* Header */}
-      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
-        <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
-          <CheckSquare className="w-4 h-4 text-rose-500" />
-          <span>Notes & Preparation</span>
+      {/* Header Banner */}
+      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
+            <FileText className="w-4 h-4 text-rose-500" />
+            <span>Notes, Ideas & Task Reminders</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
+            Group Notes & To-Do Scratchpad
+          </h2>
+          <p className="text-xs text-indigo-400 font-medium max-w-2xl">
+            Keep all group notes, emergency contacts, packing tips, outfit color palettes, and trip prep tasks with optional reminder dates in one place.
+          </p>
+
+          {/* Quick Metrics */}
+          <div className="flex flex-wrap items-center gap-2 mt-3 text-[11px]">
+            <span className="px-2.5 py-1 bg-indigo-50 text-indigo-900 font-bold rounded-xl border border-indigo-100 flex items-center space-x-1">
+              <FileText className="w-3.5 h-3.5 text-indigo-500" />
+              <span><strong>{totalCount}</strong> Total Notes</span>
+            </span>
+
+            <span className="px-2.5 py-1 bg-amber-50 text-amber-900 font-bold rounded-xl border border-amber-200/80 flex items-center space-x-1">
+              <Pin className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <span><strong>{pinnedCount}</strong> Pinned</span>
+            </span>
+
+            <span className="px-2.5 py-1 bg-sky-50 text-sky-900 font-bold rounded-xl border border-sky-200/80 flex items-center space-x-1">
+              <Clock className="w-3.5 h-3.5 text-sky-500" />
+              <span><strong>{reminderCount}</strong> Reminders</span>
+            </span>
+
+            <span className="px-2.5 py-1 bg-emerald-50 text-emerald-900 font-bold rounded-xl border border-emerald-200/80 flex items-center space-x-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              <span><strong>{completedTasksCount}</strong>/<strong>{tasksCount}</strong> Tasks Done</span>
+            </span>
+          </div>
         </div>
-        <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-          Upcoming Events & To-Do Checklist
-        </h2>
-        <p className="text-xs text-indigo-400 font-medium">
-          Track flight bookings, TDAC forms, money exchange, and offline trip meetings.
-        </p>
+
+        <div className="flex items-center space-x-2 shrink-0 self-start lg:self-center">
+          <button
+            onClick={openAddModal}
+            className="px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs uppercase tracking-tight rounded-2xl shadow-md flex items-center space-x-1.5 transition cursor-pointer"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Add Note / Task</span>
+          </button>
+        </div>
       </div>
 
-      {/* Filter Dropdowns & Add Prep Button */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-2xl border border-indigo-100 shadow-2xs text-xs">
-          <Filter className="w-4 h-4 text-indigo-500 shrink-0" />
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
-            className="bg-transparent font-extrabold text-indigo-950 outline-none cursor-pointer pr-1"
-          >
-            <option value="All">All Tasks ({prepNotes.length})</option>
-            <option value="Upcoming">Upcoming ({upcomingCount})</option>
-            <option value="To Schedule">To Schedule ({scheduleCount})</option>
-            <option value="Done">Done ({doneCount})</option>
-          </select>
-        </div>
-
-        <div className="flex items-center space-x-2 bg-white px-3.5 py-2 rounded-2xl border border-indigo-100 shadow-2xs text-xs">
-          <span className="text-slate-400 font-bold">Assigned to:</span>
-          <select
-            value={filterAssignee}
-            onChange={(e) => setFilterAssignee(e.target.value as any)}
-            className="bg-transparent font-extrabold text-indigo-950 outline-none cursor-pointer pr-1"
-          >
-            <option value="All">All</option>
-            {ALL_MEMBERS.map(m => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
-        </div>
-
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-2xl shadow-md flex items-center space-x-1.5 transition ml-auto"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Add Prep</span>
-        </button>
-      </div>
-
-      {/* Table for Desktop & Cards for Mobile */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-        
-        {/* Desktop Table View */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-bold">
-              <tr>
-                <th className="py-3.5 px-4">Date</th>
-                <th className="py-3.5 px-4">Task</th>
-                <th className="py-3.5 px-4 w-36 sm:w-44">Notes</th>
-                <th className="py-3.5 px-4">Assignee</th>
-                <th className="py-3.5 px-4">Status</th>
-                <th className="py-3.5 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 font-medium">
-              {sortedNotes.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400">
-                    No tasks found under this filter.
-                  </td>
-                </tr>
-              ) : (
-                sortedNotes.map(n => {
-                  const isTDAC = n.agenda.includes('TDAC');
-                  return (
-                    <tr
-                      key={n.id}
-                      onClick={() => setActiveDetailNote(n)}
-                      className={`hover:bg-indigo-50/50 transition cursor-pointer ${
-                        isTDAC ? 'bg-rose-50/30 font-semibold' : ''
-                      }`}
-                    >
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-700 whitespace-nowrap">
-                        {n.date}
-                      </td>
-                      <td className="py-3.5 px-4 font-bold text-slate-900">
-                        {n.agenda}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600 max-w-[150px] w-36 sm:w-44 truncate">
-                        {n.notes || '-'}
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 font-bold text-[10px]">
-                          {n.assignee || 'All'}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        {getStatusBadge(n.status)}
-                      </td>
-                      <td className="py-3.5 px-4 text-right" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end space-x-1">
-                          <button
-                            onClick={() => openEditModal(n)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-900 hover:bg-indigo-50 rounded-lg transition"
-                            title="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => deletePrepNote(n.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile Cards View */}
-        <div className="md:hidden divide-y divide-slate-100">
-          {sortedNotes.length === 0 ? (
-            <div className="p-8 text-center text-slate-400 text-xs">
-              No notes found under this filter.
-            </div>
-          ) : (
-            sortedNotes.map(n => (
-              <div
-                key={n.id}
-                onClick={() => setActiveDetailNote(n)}
-                className="p-4 space-y-2 hover:bg-slate-50 transition cursor-pointer"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-[10px] font-mono font-bold">
-                      {n.date}
-                    </span>
-                    <h4 className="font-bold text-slate-900 text-sm mt-1">
-                      {n.agenda}
-                    </h4>
-                  </div>
-                  {getStatusBadge(n.status)}
-                </div>
-
-                {n.notes && (
-                  <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-xl border border-slate-100 line-clamp-2">
-                    {n.notes}
-                  </p>
-                )}
-
-                <div className="flex items-center justify-between pt-1 text-xs" onClick={e => e.stopPropagation()}>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-slate-400 text-[11px]">Assigned to:</span>
-                    <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[10px]">
-                      {n.assignee || 'All'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center space-x-1.5">
-                    <button
-                      onClick={() => openEditModal(n)}
-                      className="p-1.5 text-slate-400 hover:text-indigo-900 hover:bg-indigo-50 rounded transition"
-                      title="Edit"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => deletePrepNote(n.id)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
+      {/* Search Bar */}
+      <div className="bg-white p-4 rounded-3xl border border-indigo-100/80 shadow-sm">
+        <div className="relative w-full">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400" />
+          <input
+            type="text"
+            placeholder="Search keywords, titles, categories, authors, tasks, or tags..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-4 py-2.5 text-xs bg-indigo-50/50 border border-indigo-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium text-indigo-950 placeholder-indigo-300"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 hover:text-indigo-600"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           )}
         </div>
-
       </div>
 
-      {/* Modal Add Preparation Note */}
-      {showAddModal && (
-        <div
-          onClick={() => setShowAddModal(false)}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50"
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-slate-900">
-                {editingItemId ? 'Edit Preparation Task' : 'Add Preparation Task'}
+      {/* Pinned Notes Section */}
+      {pinnedNotes.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center space-x-2 text-xs font-black text-amber-600 uppercase tracking-wider">
+            <Pin className="w-4 h-4 fill-amber-500 text-amber-600 transform -rotate-45" />
+            <span>Pinned Notes & Tasks</span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pinnedNotes.map(note => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onEdit={() => openEditModal(note)}
+                onDelete={() => deleteRandomNote(note.id)}
+                onTogglePin={() => togglePinRandomNote(note.id)}
+                onToggleComplete={() => toggleCompleteRandomNote(note.id)}
+                cardStyle={getCardStyle(note.color)}
+                categoryBadgeStyle={getCategoryBadgeStyle(note.category)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Other Notes Section */}
+      <div className="space-y-3">
+        {pinnedNotes.length > 0 && otherNotes.length > 0 && (
+          <div className="flex items-center space-x-2 text-xs font-black text-indigo-400 uppercase tracking-wider pt-2">
+            <FileText className="w-4 h-4 text-indigo-400" />
+            <span>All Other Notes & Tasks</span>
+          </div>
+        )}
+
+        {filteredNotes.length === 0 ? (
+          <div className="bg-white rounded-3xl border border-indigo-100 p-8 text-center space-y-3">
+            <FileText className="w-8 h-8 text-indigo-300 mx-auto" />
+            <p className="text-sm font-bold text-indigo-900">No matching notes or tasks found</p>
+            <p className="text-xs text-indigo-400">
+              Try adjusting your search terms, author, or category filters.
+            </p>
+            <button
+              onClick={openAddModal}
+              className="px-4 py-2 bg-rose-500 text-white text-xs font-black rounded-2xl shadow-sm hover:bg-rose-600 transition"
+            >
+              + Create New Note or Task
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {otherNotes.map(note => (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onEdit={() => openEditModal(note)}
+                onDelete={() => deleteRandomNote(note.id)}
+                onTogglePin={() => togglePinRandomNote(note.id)}
+                onToggleComplete={() => toggleCompleteRandomNote(note.id)}
+                cardStyle={getCardStyle(note.color)}
+                categoryBadgeStyle={getCategoryBadgeStyle(note.category)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal Add / Edit Note */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-indigo-950/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-indigo-100 animate-in fade-in zoom-in duration-150 my-8">
+            <div className="flex items-center justify-between pb-3 border-b border-indigo-100">
+              <h3 className="text-base font-black text-indigo-950 flex items-center space-x-2">
+                <Sparkles className="w-4 h-4 text-rose-500" />
+                <span>{editingNoteId ? 'Edit Note / Task' : 'Add New Note / Task'}</span>
               </h3>
               <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+                onClick={() => setShowModal(false)}
+                className="p-1 rounded-full text-indigo-400 hover:text-indigo-900 hover:bg-indigo-50"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Create or edit checklist item for flight ticket, passport, or offline meeting.
-            </p>
 
-            <form onSubmit={handleSaveSubmit} className="space-y-3 text-xs">
-              {/* 1. Title */}
+            <form onSubmit={handleSave} className="space-y-4 text-xs">
+              {/* Title */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Task Title *</label>
+                <label className="block font-bold text-indigo-900 mb-1">Title *</label>
                 <input
                   type="text"
-                  value={agenda}
-                  onChange={e => setAgenda(e.target.value)}
-                  placeholder="e.g. Tukar uang Baht / Beli e-SIM"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
                   required
+                  placeholder="e.g., Emergency Contacts, Flight Booking Deadline, TukTuk Tips"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium text-indigo-950"
                 />
               </div>
 
-              {/* 2. Date */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Target Date</label>
-                <input
-                  type="text"
-                  value={date}
-                  onChange={e => setDate(e.target.value)}
-                  placeholder="e.g. 28/10/26"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-
-              {/* 3. Notes */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Notes / Instructions</label>
-                <textarea
-                  value={notes}
-                  onChange={e => setNotes(e.target.value)}
-                  placeholder="Details, links, deadline..."
-                  rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-
-              {/* 4. Status */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Status</label>
-                <select
-                  value={status}
-                  onChange={e => setStatus(e.target.value as NoteStatus)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                >
-                  <option value="Upcoming">Upcoming</option>
-                  <option value="To Schedule">To Schedule</option>
-                  <option value="Done">Done</option>
-                </select>
-              </div>
-
-              {/* Assignee & Category */}
+              {/* Category & Author Row */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Assignee</label>
+                  <label className="block font-bold text-indigo-900 mb-1">Category</label>
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value as RandomNoteCategory)}
+                    className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium text-indigo-950"
+                  >
+                    <option value="General">General</option>
+                    <option value="Tasks & To-Do">Tasks & To-Do</option>
+                    <option value="Emergency & Contacts">Emergency & Contacts</option>
+                    <option value="Tips & Packing">Tips & Packing</option>
+                    <option value="Ideas">Ideas</option>
+                    <option value="Food & Places">Food & Places</option>
+                    <option value="Documents & Bookings">Documents & Bookings</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-indigo-900 mb-1">Author</label>
+                  <select
+                    value={author}
+                    onChange={e => setAuthor(e.target.value as MemberName)}
+                    className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-bold text-indigo-950"
+                  >
+                    {ALL_MEMBERS.map(m => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Reminder Date (OPTIONAL) & Assignee */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-indigo-900 mb-1 flex items-center justify-between">
+                    <span className="flex items-center space-x-1">
+                      <CalendarIcon className="w-3.5 h-3.5 text-rose-500" />
+                      <span>Reminder Date</span>
+                    </span>
+                    <span className="text-[10px] text-indigo-400 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={reminderDate}
+                    onChange={e => setReminderDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium text-indigo-950"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-indigo-900 mb-1 flex items-center justify-between">
+                    <span>Assignee</span>
+                    <span className="text-[10px] text-indigo-400 font-normal">(Optional)</span>
+                  </label>
                   <select
                     value={assignee}
                     onChange={e => setAssignee(e.target.value as MemberName | 'All')}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                    className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium text-indigo-950"
                   >
                     <option value="All">All Members</option>
                     {ALL_MEMBERS.map(m => (
@@ -461,33 +416,96 @@ export const PrepNotesTab: React.FC = () => {
                     ))}
                   </select>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Category</label>
-                  <select
-                    value={category}
-                    onChange={e => setCategory(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  >
-                    <option value="Preparation">Preparation</option>
-                    <option value="Document">Document</option>
-                  </select>
+              {/* Content */}
+              <div>
+                <label className="block font-bold text-indigo-900 mb-1">Content / Details *</label>
+                <textarea
+                  required
+                  rows={4}
+                  placeholder="Type note details, bullet points, phone numbers, or task steps..."
+                  value={content}
+                  onChange={e => setContent(e.target.value)}
+                  className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium text-indigo-950 leading-relaxed"
+                />
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="block font-bold text-indigo-900 mb-1">Tags (Comma-separated)</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Emergency, Booking, Hotel, Packing"
+                  value={tagsInput}
+                  onChange={e => setTagsInput(e.target.value)}
+                  className="w-full px-3 py-2 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-400 font-medium text-indigo-950"
+                />
+              </div>
+
+              {/* Color Picker */}
+              <div>
+                <label className="block font-bold text-indigo-900 mb-1.5">Card Color</label>
+                <div className="flex items-center space-x-3">
+                  {colorOptions.map(c => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      onClick={() => setColor(c.key)}
+                      className={`w-7 h-7 rounded-full border-2 transition transform ${c.bgClass} ${c.borderClass} ${
+                        color === c.key ? 'scale-110 ring-2 ring-rose-500 shadow-xs' : 'opacity-70 hover:opacity-100'
+                      }`}
+                      title={c.label}
+                    />
+                  ))}
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-2">
+              {/* Checkboxes: Pin & Complete */}
+              <div className="flex items-center space-x-6 pt-1">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="pinNote"
+                    checked={isPinned}
+                    onChange={e => setIsPinned(e.target.checked)}
+                    className="w-4 h-4 text-rose-500 border-indigo-200 rounded-md focus:ring-rose-400 cursor-pointer"
+                  />
+                  <label htmlFor="pinNote" className="font-bold text-indigo-950 cursor-pointer flex items-center space-x-1">
+                    <Pin className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Pin to Top</span>
+                  </label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="completedNote"
+                    checked={isCompleted}
+                    onChange={e => setIsCompleted(e.target.checked)}
+                    className="w-4 h-4 text-emerald-600 border-indigo-200 rounded-md focus:ring-emerald-400 cursor-pointer"
+                  />
+                  <label htmlFor="completedNote" className="font-bold text-indigo-950 cursor-pointer flex items-center space-x-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Mark as Completed Task</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-indigo-100">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-indigo-50 text-indigo-700 font-bold rounded-xl hover:bg-indigo-100 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs"
+                  className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-xl shadow-md transition cursor-pointer"
                 >
-                  {editingItemId ? 'Simpan Perubahan' : 'Add Prep'}
+                  Save Item
                 </button>
               </div>
             </form>
@@ -495,75 +513,140 @@ export const PrepNotesTab: React.FC = () => {
         </div>
       )}
 
-      {/* Modal View Preparation Task Detail - Read Only & Click Outside to Close */}
-      {activeDetailNote && (
-        <div
-          onClick={() => setActiveDetailNote(null)}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
-        >
-          <div
-            onClick={e => e.stopPropagation()}
-            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150"
-          >
-            {/* Modal Header */}
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-200/80">
-                  Assigned: {activeDetailNote.assignee || 'All'}
-                </span>
-              </div>
-              <h3 className="text-lg font-black text-slate-900 mt-2 leading-snug">
-                {activeDetailNote.agenda}
-              </h3>
-              <p className="text-xs text-slate-500 font-mono mt-0.5">
-                🗓 Target Date: {activeDetailNote.date || '-'}
-              </p>
-            </div>
+    </div>
+  );
+};
 
-            {/* Read-Only Content Body */}
-            <div className="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500 font-bold">Status:</span>
-                <div>{getStatusBadge(activeDetailNote.status)}</div>
-              </div>
+interface NoteCardProps {
+  note: RandomNote;
+  onEdit: () => void;
+  onDelete: () => void;
+  onTogglePin: () => void;
+  onToggleComplete: () => void;
+  cardStyle: string;
+  categoryBadgeStyle: string;
+}
 
-              <div className="pt-2 border-t border-slate-200/60">
-                <span className="text-slate-500 font-bold block mb-1">Notes & Details:</span>
-                <p className="text-slate-700 font-medium whitespace-pre-wrap leading-relaxed bg-white p-3 rounded-xl border border-slate-200/80">
-                  {activeDetailNote.notes || 'No additional notes provided.'}
-                </p>
-              </div>
-            </div>
+const NoteCard: React.FC<NoteCardProps> = ({
+  note,
+  onEdit,
+  onDelete,
+  onTogglePin,
+  onToggleComplete,
+  cardStyle,
+  categoryBadgeStyle
+}) => {
+  return (
+    <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs transition hover:shadow-md flex flex-col justify-between space-y-3 relative group ${cardStyle} ${
+      note.isCompleted ? 'opacity-85' : ''
+    }`}>
+      
+      <div>
+        {/* Top Header */}
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className={`px-2.5 py-0.5 rounded-full text-[10px] tracking-tight ${categoryBadgeStyle}`}>
+              {note.category}
+            </span>
 
-            {/* Modal Action Footer - No Close Button, click outside to close */}
-            <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-              <button
-                onClick={() => {
-                  const taskToDelete = activeDetailNote;
-                  setActiveDetailNote(null);
-                  deletePrepNote(taskToDelete.id);
-                }}
-                className="px-3.5 py-2 text-rose-600 hover:bg-rose-50 rounded-xl font-bold text-xs flex items-center space-x-1.5 transition"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
-              </button>
+            {note.assignee && note.assignee !== 'All' && (
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-indigo-100/90 text-indigo-900">
+                Assigned: {note.assignee}
+              </span>
+            )}
+          </div>
 
-              <button
-                onClick={() => {
-                  const taskToEdit = activeDetailNote;
-                  setActiveDetailNote(null);
-                  openEditModal(taskToEdit);
-                }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs flex items-center space-x-1.5 transition shadow-xs"
-              >
-                <Pencil className="w-4 h-4" />
-                <span>Edit Task</span>
-              </button>
-            </div>
+          <div className="flex items-center space-x-1 shrink-0">
+            <button
+              onClick={onTogglePin}
+              title={note.isPinned ? 'Unpin' : 'Pin to Top'}
+              className={`p-1 rounded-lg transition ${
+                note.isPinned
+                  ? 'text-amber-600 bg-amber-200/60'
+                  : 'text-indigo-300 hover:text-indigo-600 hover:bg-white/60'
+              }`}
+            >
+              <Pin className={`w-3.5 h-3.5 ${note.isPinned ? 'fill-amber-600 transform -rotate-45' : ''}`} />
+            </button>
+            
+            <button
+              onClick={onEdit}
+              title="Edit Note"
+              className="p-1 rounded-lg text-indigo-400 hover:text-indigo-800 hover:bg-white/60 transition"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={onDelete}
+              title="Delete Note"
+              className="p-1 rounded-lg text-rose-400 hover:text-rose-700 hover:bg-rose-100/60 transition"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
-      )}
+
+        {/* Title + Checkbox Toggle */}
+        <div className="flex items-start space-x-2 mb-1.5">
+          <button
+            onClick={onToggleComplete}
+            title={note.isCompleted ? 'Mark as Pending' : 'Mark as Completed'}
+            className="mt-0.5 text-indigo-400 hover:text-emerald-600 transition shrink-0 cursor-pointer"
+          >
+            {note.isCompleted ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 fill-emerald-100" />
+            ) : (
+              <Circle className="w-4 h-4 text-indigo-300 hover:text-emerald-500" />
+            )}
+          </button>
+
+          <h4 className={`text-sm sm:text-base font-black tracking-tight leading-snug ${
+            note.isCompleted ? 'line-through text-indigo-900/60' : 'text-indigo-950'
+          }`}>
+            {note.title}
+          </h4>
+        </div>
+
+        {/* Reminder Date Badge (OPTIONAL) */}
+        {note.reminderDate && (
+          <div className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-xl text-[11px] font-extrabold bg-white/80 text-rose-700 border border-rose-200/80 mb-2 shadow-2xs">
+            <CalendarIcon className="w-3.5 h-3.5 text-rose-500" />
+            <span>Reminder: {note.reminderDate}</span>
+          </div>
+        )}
+
+        {/* Content */}
+        <p className={`text-xs font-medium whitespace-pre-line leading-relaxed ${
+          note.isCompleted ? 'text-indigo-900/60' : 'text-indigo-900/90'
+        }`}>
+          {note.content}
+        </p>
+
+        {/* Tags */}
+        {note.tags && note.tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1 mt-3">
+            {note.tags.map(tag => (
+              <span
+                key={tag}
+                className="px-2 py-0.5 rounded-md text-[9px] font-bold bg-white/70 text-indigo-900 border border-indigo-100/80 flex items-center space-x-0.5"
+              >
+                <Tag className="w-2.5 h-2.5 text-indigo-400" />
+                <span>{tag}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="pt-2 border-t border-indigo-900/10 flex items-center justify-between text-[10px] text-indigo-950/70 font-semibold">
+        <span className="flex items-center space-x-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          <span>By <strong className="font-black">{note.author}</strong></span>
+        </span>
+        <span className="opacity-70">{note.createdAt}</span>
+      </div>
 
     </div>
   );
