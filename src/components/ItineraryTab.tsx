@@ -235,7 +235,7 @@ export const ItineraryTab: React.FC = () => {
     switch (cat) {
       case 'Food': return 'bg-rose-50/90 hover:bg-rose-100/90 border-rose-200 text-rose-950';
       case 'Shopping': return 'bg-purple-50/90 hover:bg-purple-100/90 border-purple-200 text-purple-950';
-      case 'Transport': return 'bg-blue-50/90 hover:bg-blue-100/90 border-blue-200 text-blue-950';
+      case 'OTW': return 'bg-blue-50/90 hover:bg-blue-100/90 border-blue-200 text-blue-950';
       case 'Rest': return 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-200 text-emerald-950';
       case 'Activity': return 'bg-amber-50/90 hover:bg-amber-100/90 border-amber-200 text-amber-950';
       default: return 'bg-indigo-50/90 hover:bg-indigo-100/90 border-indigo-200 text-indigo-950';
@@ -246,7 +246,7 @@ export const ItineraryTab: React.FC = () => {
     switch (cat) {
       case 'Food': return 'bg-rose-50 text-rose-700 border-rose-200';
       case 'Shopping': return 'bg-purple-50 text-purple-700 border-purple-200';
-      case 'Transport': return 'bg-blue-50 text-blue-700 border-blue-200';
+      case 'OTW': return 'bg-blue-50 text-blue-700 border-blue-200';
       case 'Rest': return 'bg-emerald-50 text-emerald-700 border-emerald-200';
       case 'Activity': return 'bg-amber-50 text-amber-700 border-amber-200';
       default: return 'bg-indigo-50 text-indigo-700 border-indigo-200';
@@ -540,7 +540,7 @@ export const ItineraryTab: React.FC = () => {
                   <option value="Sightseeing">Sightseeing</option>
                   <option value="Food">Culinary</option>
                   <option value="Shopping">Shopping</option>
-                  <option value="Transport">Transport</option>
+                  <option value="OTW">OTW</option>
                   <option value="Activity">Activity</option>
                   <option value="Rest">Rest</option>
                 </select>
