@@ -97,7 +97,7 @@ export interface ItineraryActivity {
   time: string; // e.g. "07:00", "12:00"
   title: string;
   description?: string;
-  category: 'Food' | 'Sightseeing' | 'Transport' | 'Activity' | 'Rest' | 'Shopping';
+  category: 'Food' | 'Sightseeing' | 'Transport' | 'Activity' | 'Rest' | 'Shopping' | 'OTW';
   locationName?: string;
   mapsUrl?: string;
   estimatedBudgetTHB?: number;
@@ -134,5 +134,20 @@ export interface EssentialDocument {
   readyMembers: MemberName[];
   criticalNotice?: string;
   targetDate?: string;
+}
+
+export type NoteColor = 'yellow' | 'pink' | 'blue' | 'green' | 'purple' | 'amber';
+export type RandomNoteCategory = 'General' | 'Ideas' | 'Tips & Packing' | 'Emergency & Contacts' | 'Food & Places';
+
+export interface RandomNote {
+  id: string;
+  title: string;
+  content: string;
+  category: RandomNoteCategory;
+  color: NoteColor;
+  author: MemberName;
+  isPinned?: boolean;
+  createdAt: string;
+  tags?: string[];
 }
 
