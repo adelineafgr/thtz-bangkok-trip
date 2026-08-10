@@ -59,16 +59,26 @@ export const PrepNotesTab: React.FC = () => {
   };
 
   const parseDateTimestamp = (dateStr: string): number => {
-    if (!dateStr) return 9999999999999;
-    const parts = dateStr.trim().split('/');
+    if (!dateStr || !dateStr.trim()) return 9999999999999;
+    const cleanStr = dateStr.trim();
+    const parts = cleanStr.split(/[\/\-]/);
     if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      let year = parseInt(parts[2], 10);
-      if (year < 100) year += 2000;
-      return new Date(year, month, day).getTime();
+      if (parts[0].length === 4) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) return d.getTime();
+      } else {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        let year = parseInt(parts[2], 10);
+        if (year < 100) year += 2000;
+        const d = new Date(year, month, day);
+        if (!isNaN(d.getTime())) return d.getTime();
+      }
     }
-    const timestamp = new Date(dateStr).getTime();
+    const timestamp = new Date(cleanStr).getTime();
     return isNaN(timestamp) ? 9999999999999 : timestamp;
   };
 
@@ -78,7 +88,29 @@ export const PrepNotesTab: React.FC = () => {
     return true;
   });
 
-  const sortedNotes = [...filteredNotes].sort((a, b) => parseDateTimestamp(a.date) - parseDateTimestamp(b.date));
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    // Done items move to the bottom
+    const aIsDone = a.status === 'Done';
+    const bIsDone = b.status === 'Done';
+    if (aIsDone !== bIsDone) {
+      return aIsDone ? 1 : -1;
+    }
+
+    // Sort by nearest deadline (earliest date timestamp first)
+    const timeA = parseDateTimestamp(a.date);
+    const timeB = parseDateTimestamp(b.date);
+    if (timeA !== timeB) {
+      return timeA - timeB;
+    }
+
+    // Priority: Upcoming before To Schedule
+    if (a.status !== b.status) {
+      if (a.status === 'Upcoming') return -1;
+      if (b.status === 'Upcoming') return 1;
+    }
+
+    return 0;
+  });
 
   const doneCount = prepNotes.filter(n => n.status === 'Done').length;
   const upcomingCount = prepNotes.filter(n => n.status === 'Upcoming').length;
