@@ -20,6 +20,8 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Camera,
   ThumbsUp
 } from 'lucide-react';
@@ -117,20 +119,40 @@ export const OverviewTab: React.FC = () => {
   const [accPhoto3, setAccPhoto3] = useState('');
   const [accBookingLink, setAccBookingLink] = useState('');
 
+  const [activeEventIndex, setActiveEventIndex] = useState(0);
+
   const kas = getKasSummary();
   const donePrep = prepNotes.filter(p => p.status === 'Done').length;
   const prepProgressPercent = Math.round((donePrep / (prepNotes.length || 1)) * 100);
 
-  // Next upcoming activity from itinerary
-  const allActivitiesWithDay = itinerary.flatMap(day =>
-    day.activities.map(act => ({
-      ...act,
-      dayNumber: day.dayNumber,
-      dateStr: day.dateStr,
-      dayTitle: day.title
-    }))
+  // Combine upcoming items from Preparation Notes and Itinerary
+  const upcomingPrepEvents = prepNotes
+    .filter(p => p.status !== 'Done')
+    .map(p => ({
+      id: `prep-${p.id}`,
+      type: 'prep' as const,
+      title: p.agenda,
+      badge: `Prep · ${p.date || 'Upcoming'}${p.category ? ` · ${p.category}` : ''}`,
+      subText: p.notes || (p.assignee && p.assignee !== 'All' ? `Assignee: ${p.assignee}` : 'Preparation Task'),
+      targetTab: 'prep' as const
+    }));
+
+  const upcomingItineraryEvents = itinerary.flatMap(day =>
+    day.activities
+      .filter(act => !act.isDone)
+      .map(act => ({
+        id: `itinerary-${act.id}`,
+        type: 'itinerary' as const,
+        title: act.title,
+        badge: `Day ${day.dayNumber} · ${act.time}`,
+        subText: act.locationName || act.description || 'Bangkok Activity',
+        targetTab: 'itinerary' as const
+      }))
   );
-  const nextActivity = allActivitiesWithDay.find(act => !act.isDone) || allActivitiesWithDay[0];
+
+  const allUpcomingEvents = [...upcomingPrepEvents, ...upcomingItineraryEvents];
+  const safeIndex = Math.min(activeEventIndex, Math.max(0, allUpcomingEvents.length - 1));
+  const currentUpcoming = allUpcomingEvents[safeIndex] || null;
 
   // Countdown calc to Oct 30, 2026
   const tripDate = new Date('2026-10-30T00:00:00');
@@ -261,50 +283,83 @@ export const OverviewTab: React.FC = () => {
 
       {/* Upcoming Event Banner */}
       <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-rose-950 rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-indigo-700/50">
-        <div className="flex items-start sm:items-center space-x-3.5 min-w-0">
+        <div className="flex items-start sm:items-center space-x-3.5 min-w-0 w-full sm:w-auto">
           <div className="p-3 bg-rose-500/20 border border-rose-400/30 rounded-2xl backdrop-blur-xs flex-shrink-0 text-amber-300">
-            <Calendar className="w-6 h-6 text-amber-300" />
+            {currentUpcoming?.type === 'prep' ? (
+              <FileCheck className="w-6 h-6 text-amber-300" />
+            ) : (
+              <Calendar className="w-6 h-6 text-amber-300" />
+            )}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center space-x-2 text-[10px] sm:text-xs font-black text-amber-300 uppercase tracking-widest mb-0.5">
               <span>Upcoming Event</span>
-              {nextActivity && (
+              {currentUpcoming && (
                 <span className="bg-white/10 px-2 py-0.5 rounded-full text-indigo-200">
-                  Day {nextActivity.dayNumber} · {nextActivity.time}
+                  {currentUpcoming.badge}
                 </span>
               )}
             </div>
-            {nextActivity ? (
+            {currentUpcoming ? (
               <div>
                 <h4 className="font-black text-sm sm:text-base tracking-tight text-white truncate">
-                  {nextActivity.title}
+                  {currentUpcoming.title}
                 </h4>
-                {nextActivity.locationName && (
+                {currentUpcoming.subText && (
                   <p className="text-xs text-indigo-200 font-medium flex items-center space-x-1 mt-0.5 truncate">
-                    <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                    <span className="truncate">{nextActivity.locationName}</span>
+                    {currentUpcoming.type === 'itinerary' ? (
+                      <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    )}
+                    <span className="truncate">{currentUpcoming.subText}</span>
                   </p>
                 )}
               </div>
             ) : (
               <div>
                 <h4 className="font-black text-sm sm:text-base tracking-tight text-white">
-                  No upcoming activities scheduled
+                  No upcoming activities or prep tasks
                 </h4>
                 <p className="text-xs text-indigo-200 font-medium mt-0.5">
-                  Start adding events to your Bangkok itinerary!
+                  Start adding events to your Bangkok itinerary or prep notes!
                 </p>
               </div>
             )}
           </div>
         </div>
-        <button
-          onClick={() => setActiveTab('itinerary')}
-          className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-white text-indigo-950 rounded-2xl text-xs font-black shadow-md hover:bg-rose-50 transition shrink-0 cursor-pointer"
-        >
-          <span>View Itinerary</span>
-          <ArrowRight className="w-3.5 h-3.5 text-indigo-600" />
-        </button>
+
+        <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+          {allUpcomingEvents.length > 1 && (
+            <div className="flex items-center space-x-1 bg-white/10 p-1 rounded-xl border border-white/10">
+              <button
+                onClick={() => setActiveEventIndex(prev => (prev > 0 ? prev - 1 : allUpcomingEvents.length - 1))}
+                className="p-1 hover:bg-white/20 rounded-lg text-white transition cursor-pointer"
+                title="Previous Event"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-[10px] font-mono px-1 text-indigo-200">
+                {safeIndex + 1}/{allUpcomingEvents.length}
+              </span>
+              <button
+                onClick={() => setActiveEventIndex(prev => (prev < allUpcomingEvents.length - 1 ? prev + 1 : 0))}
+                className="p-1 hover:bg-white/20 rounded-lg text-white transition cursor-pointer"
+                title="Next Event"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => setActiveTab(currentUpcoming ? currentUpcoming.targetTab : 'itinerary')}
+            className="flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-white text-indigo-950 rounded-2xl text-xs font-black shadow-md hover:bg-rose-50 transition shrink-0 cursor-pointer"
+          >
+            <span>{currentUpcoming?.targetTab === 'prep' ? 'View Preparation' : 'View Itinerary'}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-indigo-600" />
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats Cards */}
@@ -325,7 +380,7 @@ export const OverviewTab: React.FC = () => {
             {formatCurrency(kas.saldoKasTHB, kas.saldoKasIDR)}
           </div>
           <p className="text-[11px] font-medium text-indigo-500 mt-1">
-            Target Pemasukan: {formatCurrency(undefined, kas.totalKasInputIDR)}
+            Track group kas balance and personal payments.
           </p>
         </div>
 
@@ -402,7 +457,7 @@ export const OverviewTab: React.FC = () => {
               <span>Logistics: Hotel & Airbnb Options</span>
             </h3>
             <p className="text-xs text-indigo-400 font-medium">
-              Klik card untuk melihat detail lengkap hotel & memberikan vote!
+              Tap a card to explore the hotel details and cast your vote!
             </p>
           </div>
           
