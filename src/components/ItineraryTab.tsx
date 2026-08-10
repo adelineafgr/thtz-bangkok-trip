@@ -700,6 +700,38 @@ export const ItineraryTab: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Location */}
+                {detailActivity.locationName && (
+                  <div className="flex items-center space-x-2 text-xs text-slate-700 bg-rose-50/60 p-3 rounded-2xl border border-rose-100">
+                    <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
+                    <div className="flex-1">
+                      <span className="font-bold block">{detailActivity.locationName}</span>
+                      {detailActivity.mapsUrl && (
+                        <a
+                          href={detailActivity.mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center space-x-1 mt-0.5"
+                        >
+                          <span>Open in Google Maps</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Estimated Cost */}
+                {detailActivity.estimatedBudgetTHB && (
+                  <div className="flex items-center justify-between text-xs bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
+                    <span className="font-bold text-emerald-900">Estimated Cost:</span>
+                    <span className="font-black text-emerald-700">
+                      {formatCurrency(detailActivity.estimatedBudgetTHB)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Notes & Details */}
                 {detailActivity.description && (
                   <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80 space-y-1">
                     <div className="text-[10px] font-black uppercase text-indigo-600 tracking-wider">
@@ -710,35 +742,6 @@ export const ItineraryTab: React.FC = () => {
                     </p>
                   </div>
                 )}
-
-              {detailActivity.locationName && (
-                <div className="flex items-center space-x-2 text-xs text-slate-700 bg-rose-50/60 p-3 rounded-2xl border border-rose-100">
-                  <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
-                  <div className="flex-1">
-                    <span className="font-bold block">{detailActivity.locationName}</span>
-                    {detailActivity.mapsUrl && (
-                      <a
-                        href={detailActivity.mapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center space-x-1 mt-0.5"
-                      >
-                        <span>Open in Google Maps</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {detailActivity.estimatedBudgetTHB && (
-                <div className="flex items-center justify-between text-xs bg-emerald-50 p-3 rounded-2xl border border-emerald-200">
-                  <span className="font-bold text-emerald-900">Estimated Cost:</span>
-                  <span className="font-black text-emerald-700">
-                    {formatCurrency(detailActivity.estimatedBudgetTHB)}
-                  </span>
-                </div>
-              )}
             </div>
 
             <div className="pt-3 border-t border-slate-100">
