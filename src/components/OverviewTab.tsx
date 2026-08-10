@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
-import { MemberName, ALL_MEMBERS, AccommodationOption } from '../types';
+import { AccommodationOption } from '../types';
 import {
   Calendar,
   Building,
   FileCheck,
   PhoneCall,
-  Navigation,
-  ThumbsUp,
   AlertTriangle,
   ArrowRight,
   TrendingUp,
@@ -15,25 +13,23 @@ import {
   ExternalLink,
   MapPin,
   CheckCircle2,
-  Clock,
-  Sparkles,
   Plus,
   Pencil,
   Trash2,
   X,
   Check,
-  UserCheck,
   ChevronDown,
   ChevronUp,
-  Camera
+  ChevronLeft,
+  ChevronRight,
+  Camera,
+  ThumbsUp
 } from 'lucide-react';
 
 export const OverviewTab: React.FC = () => {
   const {
     currentMember,
-    setCurrentMember,
     prepNotes,
-    updatePrepNoteStatus,
     wishlist,
     moodboard,
     accommodations,
@@ -49,14 +45,9 @@ export const OverviewTab: React.FC = () => {
     getKasSummary,
     formatCurrency,
     setActiveTab,
-    currency,
     exchangeRate,
-    itinerary,
-    toggleItineraryActivityDone
+    itinerary
   } = useTrip();
-
-  // Upcoming filter state
-  const [upcomingFilter, setUpcomingFilter] = useState<'ALL' | 'PREP' | 'ITINERARY'>('ALL');
 
   // Essential Documents expanded state
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
@@ -108,6 +99,10 @@ export const OverviewTab: React.FC = () => {
   const [calcAmount, setCalcAmount] = useState<string>('1000');
   const [calcDir, setCalcDir] = useState<'THB_TO_IDR' | 'IDR_TO_THB'>('THB_TO_IDR');
 
+  // Accommodation Detail Modal State
+  const [showDetailAccModal, setShowDetailAccModal] = useState(false);
+  const [detailAcc, setDetailAcc] = useState<AccommodationOption | null>(null);
+
   // Logistics / Hotel CRUD Modal State
   const [showAccModal, setShowAccModal] = useState(false);
   const [editingAccId, setEditingAccId] = useState<string | null>(null);
@@ -124,38 +119,88 @@ export const OverviewTab: React.FC = () => {
   const [accPhoto3, setAccPhoto3] = useState('');
   const [accBookingLink, setAccBookingLink] = useState('');
 
-  const parseDateTimestamp = (dateStr: string): number => {
-    if (!dateStr) return 9999999999999;
-    const parts = dateStr.trim().split('/');
+  const [activeEventIndex, setActiveEventIndex] = useState(0);
+
+  const parseDateToTimestamp = (dateStr?: string, timeStr?: string): number => {
+    if (!dateStr || !dateStr.trim()) return 9999999999999;
+    const cleanStr = dateStr.trim();
+    const parts = cleanStr.split(/[\/\-]/);
+    let year = 2026, month = 9, day = 30; // Default to trip start Oct 30, 2026 if unparseable
+
     if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      let year = parseInt(parts[2], 10);
-      if (year < 100) year += 2000;
-      return new Date(year, month, day).getTime();
+      if (parts[0].length === 4) { // YYYY-MM-DD
+        year = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10) - 1;
+        day = parseInt(parts[2], 10);
+      } else { // DD/MM/YY or DD/MM/YYYY
+        day = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10) - 1;
+        year = parseInt(parts[2], 10);
+        if (year < 100) year += 2000;
+      }
+    } else {
+      const d = new Date(cleanStr);
+      if (!isNaN(d.getTime())) {
+        year = d.getFullYear();
+        month = d.getMonth();
+        day = d.getDate();
+      }
     }
-    const timestamp = new Date(dateStr).getTime();
-    return isNaN(timestamp) ? 9999999999999 : timestamp;
+
+    let hours = 0, minutes = 0;
+    if (timeStr && timeStr.includes(':')) {
+      const timeParts = timeStr.trim().split(':');
+      hours = parseInt(timeParts[0], 10) || 0;
+      minutes = parseInt(timeParts[1], 10) || 0;
+    }
+
+    const resultDate = new Date(year, month, day, hours, minutes);
+    return isNaN(resultDate.getTime()) ? 9999999999999 : resultDate.getTime();
   };
-
-  // Real-time calculated Upcoming Prep Tasks (Non-Done)
-  const upcomingPrepNotes = prepNotes
-    .filter(p => p.status !== 'Done')
-    .sort((a, b) => parseDateTimestamp(a.date) - parseDateTimestamp(b.date));
-
-  // Real-time calculated Upcoming Itinerary Activities (Non-Done)
-  const upcomingItineraryList = itinerary.flatMap(day =>
-    day.activities.map(act => ({
-      ...act,
-      dayNumber: day.dayNumber,
-      dayDate: day.date,
-      dayTitle: day.title
-    }))
-  ).filter(act => !act.isDone);
 
   const kas = getKasSummary();
   const donePrep = prepNotes.filter(p => p.status === 'Done').length;
   const prepProgressPercent = Math.round((donePrep / (prepNotes.length || 1)) * 100);
+
+  // Combine upcoming items from Preparation Notes and Itinerary sorted chronologically by nearest deadline/time
+  const upcomingPrepEvents = prepNotes
+    .filter(p => p.status !== 'Done')
+    .map(p => ({
+      id: `prep-${p.id}`,
+      type: 'prep' as const,
+      title: p.agenda,
+      badge: `Prep · ${p.date || 'Upcoming'}${p.category ? ` · ${p.category}` : ''}`,
+      subText: p.notes || (p.assignee && p.assignee !== 'All' ? `Assignee: ${p.assignee}` : 'Preparation Task'),
+      targetTab: 'prep' as const,
+      timestamp: parseDateToTimestamp(p.date)
+    }));
+
+  const upcomingItineraryEvents = itinerary.flatMap(day =>
+    day.activities
+      .filter(act => !act.isDone)
+      .map(act => ({
+        id: `itinerary-${act.id}`,
+        type: 'itinerary' as const,
+        title: act.title,
+        badge: `Day ${day.dayNumber} · ${act.time}`,
+        subText: act.locationName || act.description || 'Bangkok Activity',
+        targetTab: 'itinerary' as const,
+        timestamp: parseDateToTimestamp(day.date, act.time)
+      }))
+  );
+
+  const allUpcomingEvents = [...upcomingPrepEvents, ...upcomingItineraryEvents].sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
+
+  // Auto-reset index when top upcoming event or length changes
+  const firstEventId = allUpcomingEvents[0]?.id;
+  useEffect(() => {
+    setActiveEventIndex(0);
+  }, [firstEventId, allUpcomingEvents.length]);
+
+  const safeIndex = Math.min(activeEventIndex, Math.max(0, allUpcomingEvents.length - 1));
+  const currentUpcoming = allUpcomingEvents[safeIndex] || null;
 
   // Countdown calc to Oct 30, 2026
   const tripDate = new Date('2026-10-30T00:00:00');
@@ -284,28 +329,85 @@ export const OverviewTab: React.FC = () => {
         </div>
       </div>
 
-      {/* TDAC Warning Banner */}
-      <div className="bg-gradient-to-r from-rose-500 via-indigo-600 to-indigo-900 rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-xs flex-shrink-0">
-            <AlertTriangle className="w-6 h-6 text-amber-300" />
+      {/* Upcoming Event Banner */}
+      <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-rose-950 rounded-3xl p-4 sm:p-5 text-white shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-indigo-700/50">
+        <div className="flex items-start sm:items-center space-x-3.5 min-w-0 w-full sm:w-auto">
+          <div className="p-3 bg-rose-500/20 border border-rose-400/30 rounded-2xl backdrop-blur-xs flex-shrink-0 text-amber-300">
+            {currentUpcoming?.type === 'prep' ? (
+              <FileCheck className="w-6 h-6 text-amber-300" />
+            ) : (
+              <Calendar className="w-6 h-6 text-amber-300" />
+            )}
           </div>
-          <div>
-            <h4 className="font-black text-sm sm:text-base tracking-tight">
-              Essential Reminder: TDAC Form
-            </h4>
-            <p className="text-xs text-rose-100 font-bold leading-tight">
-              ⚠️ DIISI MAKSIMAL 3 HARI SEBELUM SAMPAI DI BANGKOK (BKK) ⚠️
-            </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center space-x-2 text-[10px] sm:text-xs font-black text-amber-300 uppercase tracking-widest mb-0.5">
+              <span>Upcoming Event</span>
+              {currentUpcoming && (
+                <span className="bg-white/10 px-2 py-0.5 rounded-full text-indigo-200">
+                  {currentUpcoming.badge}
+                </span>
+              )}
+            </div>
+            {currentUpcoming ? (
+              <div>
+                <h4 className="font-black text-sm sm:text-base tracking-tight text-white truncate">
+                  {currentUpcoming.title}
+                </h4>
+                {currentUpcoming.subText && (
+                  <p className="text-xs text-indigo-200 font-medium flex items-center space-x-1 mt-0.5 truncate">
+                    {currentUpcoming.type === 'itinerary' ? (
+                      <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    ) : (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    )}
+                    <span className="truncate">{currentUpcoming.subText}</span>
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div>
+                <h4 className="font-black text-sm sm:text-base tracking-tight text-white">
+                  No upcoming activities or prep tasks
+                </h4>
+                <p className="text-xs text-indigo-200 font-medium mt-0.5">
+                  Start adding events to your Bangkok itinerary or prep notes!
+                </p>
+              </div>
+            )}
           </div>
         </div>
-        <button
-          onClick={() => setActiveTab('prep')}
-          className="w-full sm:w-auto flex items-center justify-center space-x-1.5 px-4 py-2 bg-white text-indigo-950 rounded-2xl text-xs font-black shadow-md hover:bg-rose-50 transition shrink-0"
-        >
-          <span>Check Prep Checklist</span>
-          <ArrowRight className="w-3.5 h-3.5 text-indigo-600" />
-        </button>
+
+        <div className="flex items-center space-x-2 w-full sm:w-auto justify-between sm:justify-end shrink-0">
+          {allUpcomingEvents.length > 1 && (
+            <div className="flex items-center space-x-1 bg-white/10 p-1 rounded-xl border border-white/10">
+              <button
+                onClick={() => setActiveEventIndex(prev => (prev > 0 ? prev - 1 : allUpcomingEvents.length - 1))}
+                className="p-1 hover:bg-white/20 rounded-lg text-white transition cursor-pointer"
+                title="Previous Event"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-[10px] font-mono px-1 text-indigo-200">
+                {safeIndex + 1}/{allUpcomingEvents.length}
+              </span>
+              <button
+                onClick={() => setActiveEventIndex(prev => (prev < allUpcomingEvents.length - 1 ? prev + 1 : 0))}
+                className="p-1 hover:bg-white/20 rounded-lg text-white transition cursor-pointer"
+                title="Next Event"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => setActiveTab(currentUpcoming ? currentUpcoming.targetTab : 'itinerary')}
+            className="flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-white text-indigo-950 rounded-2xl text-xs font-black shadow-md hover:bg-rose-50 transition shrink-0 cursor-pointer"
+          >
+            <span>{currentUpcoming?.targetTab === 'prep' ? 'View Preparation' : 'View Itinerary'}</span>
+            <ArrowRight className="w-3.5 h-3.5 text-indigo-600" />
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats Cards */}
@@ -326,7 +428,7 @@ export const OverviewTab: React.FC = () => {
             {formatCurrency(kas.saldoKasTHB, kas.saldoKasIDR)}
           </div>
           <p className="text-[11px] font-medium text-indigo-500 mt-1">
-            Target Pemasukan: {formatCurrency(undefined, kas.totalKasInputIDR)}
+            Track group kas balance and personal payments.
           </p>
         </div>
 
@@ -344,15 +446,15 @@ export const OverviewTab: React.FC = () => {
           <div className="text-lg sm:text-xl font-black text-indigo-950">
             {donePrep} / {prepNotes.length} <span className="text-xs font-normal text-indigo-400">Done</span>
           </div>
-          <p className="text-[11px] font-bold text-emerald-600 mt-0.5">
-            {donePrep > 0 && donePrep === prepNotes.length ? 'We are ready for Bangkok 🎉' : 'Getting Ready for Bangkok'}
-          </p>
           <div className="w-full bg-indigo-50 rounded-full h-2 mt-2">
             <div
               className="bg-emerald-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${prepProgressPercent}%` }}
             />
           </div>
+          <p className="text-[11px] font-medium text-indigo-500 mt-1.5">
+            Getting Ready for Bangkok
+          </p>
         </div>
 
         {/* Wishlist Items */}
@@ -394,203 +496,6 @@ export const OverviewTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Realtime Upcoming Events & Next Agenda Section */}
-      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-indigo-100/80 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-indigo-100/80">
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3 className="text-base sm:text-lg font-black text-indigo-950 flex items-center space-x-2">
-                <Clock className="w-5 h-5 text-rose-500 animate-pulse" />
-                <span>Upcoming Events & Next Agenda</span>
-              </h3>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider flex items-center space-x-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                <span>Realtime Sync</span>
-              </span>
-            </div>
-            <p className="text-xs text-indigo-400 font-medium mt-0.5">
-              Live updates when tasks or itinerary activities are created, updated, or checked off.
-            </p>
-          </div>
-
-          {/* Filter Pills */}
-          <div className="flex items-center space-x-1 bg-indigo-50/80 p-1 rounded-2xl shrink-0 self-start sm:self-auto text-xs font-black">
-            <button
-              onClick={() => setUpcomingFilter('ALL')}
-              className={`px-3 py-1.5 rounded-xl transition ${
-                upcomingFilter === 'ALL' ? 'bg-indigo-600 text-white shadow-xs' : 'text-indigo-600 hover:text-indigo-950'
-              }`}
-            >
-              All ({upcomingPrepNotes.length + upcomingItineraryList.length})
-            </button>
-            <button
-              onClick={() => setUpcomingFilter('PREP')}
-              className={`px-3 py-1.5 rounded-xl transition ${
-                upcomingFilter === 'PREP' ? 'bg-indigo-600 text-white shadow-xs' : 'text-indigo-600 hover:text-indigo-950'
-              }`}
-            >
-              Tasks ({upcomingPrepNotes.length})
-            </button>
-            <button
-              onClick={() => setUpcomingFilter('ITINERARY')}
-              className={`px-3 py-1.5 rounded-xl transition ${
-                upcomingFilter === 'ITINERARY' ? 'bg-indigo-600 text-white shadow-xs' : 'text-indigo-600 hover:text-indigo-950'
-              }`}
-            >
-              Itinerary ({upcomingItineraryList.length})
-            </button>
-          </div>
-        </div>
-
-        {/* Real-time Event Cards Grid / List */}
-        <div className="space-y-4">
-          {/* Prep Tasks */}
-          {(upcomingFilter === 'ALL' || upcomingFilter === 'PREP') && upcomingPrepNotes.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-indigo-950 px-1">
-                <span className="flex items-center space-x-1.5 text-indigo-600">
-                  <CheckCircle2 className="w-4 h-4 text-amber-500" />
-                  <span>Preparation Tasks ({upcomingPrepNotes.length})</span>
-                </span>
-                <button
-                  onClick={() => setActiveTab('prep')}
-                  className="text-rose-500 hover:underline text-[11px] font-bold"
-                >
-                  View All Tasks →
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {upcomingPrepNotes.slice(0, 4).map(note => (
-                  <div
-                    key={note.id}
-                    className="p-3.5 rounded-2xl border border-indigo-100/90 bg-indigo-50/30 hover:bg-indigo-50/70 transition flex items-start justify-between gap-3 group"
-                  >
-                    <div className="flex items-start space-x-3 min-w-0">
-                      {/* Checkbox Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => updatePrepNoteStatus(note.id, 'Done')}
-                        className="mt-0.5 w-5 h-5 rounded-lg border-2 border-indigo-300 hover:border-emerald-500 hover:bg-emerald-50 flex items-center justify-center transition shrink-0 bg-white"
-                        title="Mark Task as Done"
-                      >
-                        <Check className="w-3.5 h-3.5 text-transparent hover:text-emerald-600" />
-                      </button>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center space-x-2 flex-wrap gap-1 mb-0.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-900">
-                            {note.date || 'Upcoming'}
-                          </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-100 text-indigo-700">
-                            {note.category || 'Prep'}
-                          </span>
-                          <span className="text-[10px] text-indigo-400 font-bold">
-                            Assigned: {note.assignee || 'All'}
-                          </span>
-                        </div>
-                        <h4 className="font-extrabold text-indigo-950 text-xs sm:text-sm leading-snug">
-                          {note.agenda}
-                        </h4>
-                        {note.notes && (
-                          <p className="text-[11px] text-indigo-500 font-medium line-clamp-1 mt-0.5">
-                            {note.notes}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => updatePrepNoteStatus(note.id, 'Done')}
-                      className="px-2.5 py-1 rounded-xl bg-white border border-indigo-200 text-indigo-700 hover:bg-emerald-600 hover:text-white text-[10px] font-bold transition shrink-0 opacity-80 group-hover:opacity-100"
-                    >
-                      Check Off
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Itinerary Activities */}
-          {(upcomingFilter === 'ALL' || upcomingFilter === 'ITINERARY') && upcomingItineraryList.length > 0 && (
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between text-xs font-black text-indigo-950 px-1">
-                <span className="flex items-center space-x-1.5 text-indigo-600">
-                  <Calendar className="w-4 h-4 text-indigo-600" />
-                  <span>Next Trip Itinerary Activities ({upcomingItineraryList.length})</span>
-                </span>
-                <button
-                  onClick={() => setActiveTab('itinerary')}
-                  className="text-rose-500 hover:underline text-[11px] font-bold"
-                >
-                  View Full Itinerary →
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-                {upcomingItineraryList.slice(0, 4).map(act => (
-                  <div
-                    key={act.id}
-                    className="p-3.5 rounded-2xl border border-indigo-100/90 bg-white hover:bg-indigo-50/40 transition flex items-start justify-between gap-3 group shadow-2xs"
-                  >
-                    <div className="flex items-start space-x-3 min-w-0">
-                      {/* Checkbox Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => toggleItineraryActivityDone(act.dayNumber, act.id)}
-                        className="mt-0.5 w-5 h-5 rounded-lg border-2 border-indigo-300 hover:border-emerald-500 hover:bg-emerald-50 flex items-center justify-center transition shrink-0 bg-white"
-                        title="Mark Activity Done"
-                      >
-                        <Check className="w-3.5 h-3.5 text-transparent hover:text-emerald-600" />
-                      </button>
-
-                      <div className="min-w-0">
-                        <div className="flex items-center space-x-2 flex-wrap gap-1 mb-0.5">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-indigo-600 text-white">
-                            Day {act.dayNumber} · {act.time}
-                          </span>
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800">
-                            {act.category}
-                          </span>
-                        </div>
-                        <h4 className="font-extrabold text-indigo-950 text-xs sm:text-sm leading-snug">
-                          {act.title}
-                        </h4>
-                        {act.locationName && (
-                          <p className="text-[11px] text-indigo-500 font-medium flex items-center space-x-1 mt-0.5 truncate">
-                            <MapPin className="w-3 h-3 text-rose-500 shrink-0" />
-                            <span className="truncate">{act.locationName}</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => toggleItineraryActivityDone(act.dayNumber, act.id)}
-                      className="px-2.5 py-1 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-emerald-600 hover:text-white text-[10px] font-bold transition shrink-0 opacity-80 group-hover:opacity-100"
-                    >
-                      Complete
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state if all items are done or filtered out */}
-          {((upcomingFilter === 'PREP' && upcomingPrepNotes.length === 0) ||
-            (upcomingFilter === 'ITINERARY' && upcomingItineraryList.length === 0) ||
-            (upcomingFilter === 'ALL' && upcomingPrepNotes.length === 0 && upcomingItineraryList.length === 0)) && (
-            <div className="p-8 text-center bg-indigo-50/40 rounded-2xl border border-dashed border-indigo-200">
-              <Sparkles className="w-6 h-6 text-amber-500 mx-auto mb-2" />
-              <p className="text-xs font-bold text-indigo-950">All upcoming events & activities checked off! 🎉</p>
-              <p className="text-[11px] text-indigo-400 mt-1">Add new tasks or itinerary items to track them here in real-time.</p>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Hotel & Accommodation Comparison Section (Logistics CRUD) */}
       <div className="bg-white rounded-3xl p-5 sm:p-6 border border-indigo-100/80 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -600,7 +505,7 @@ export const OverviewTab: React.FC = () => {
               <span>Logistics: Hotel & Airbnb Options</span>
             </h3>
             <p className="text-xs text-indigo-400 font-medium">
-              Vote for your preferred stay option or manage hotel options below!
+              Tap a card to explore the hotel details and cast your vote!
             </p>
           </div>
           
@@ -615,14 +520,19 @@ export const OverviewTab: React.FC = () => {
           </div>
         </div>
 
+        {/* Accommodation Cards Grid (Sampai Estimasi Harga) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {accommodations.map(acc => {
             const hasVoted = acc.votes.includes(currentMember);
             return (
               <div
                 key={acc.id}
-                className={`rounded-3xl border p-4 transition flex flex-col justify-between ${
-                  hasVoted ? 'border-indigo-400 bg-indigo-50/40 shadow-sm' : 'border-indigo-100 bg-white'
+                onClick={() => {
+                  setDetailAcc(acc);
+                  setShowDetailAccModal(true);
+                }}
+                className={`rounded-3xl border p-4 transition flex flex-col justify-between cursor-pointer hover:shadow-md ${
+                  hasVoted ? 'border-indigo-400 bg-indigo-50/40 shadow-sm' : 'border-indigo-100 bg-white hover:border-indigo-300'
                 }`}
               >
                 <div>
@@ -639,40 +549,19 @@ export const OverviewTab: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Title, Rating & Edit/Delete actions */}
-                  <div className="flex flex-wrap items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-[160px]">
-                      <h4 className="font-extrabold text-indigo-950 text-sm leading-snug break-words">
-                        {acc.name}
+                  {/* Title & Rating */}
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div>
+                      <h4 className="font-extrabold text-indigo-950 text-sm leading-snug break-words flex items-center gap-1.5">
+                        <span>{acc.name}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-black shrink-0">
+                          ★ {acc.rating}
+                        </span>
                       </h4>
                       <p className="text-xs text-indigo-400 font-medium flex items-center space-x-1 mt-0.5">
                         <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                         <span className="truncate">{acc.location}</span>
                       </p>
-                    </div>
-
-                    <div className="flex items-center space-x-1 shrink-0 ml-auto">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-black">
-                        ★ {acc.rating}
-                      </span>
-                      <button
-                        onClick={() => openEditAccModal(acc)}
-                        className="p-1.5 text-indigo-400 hover:text-indigo-950 hover:bg-indigo-50 rounded-lg transition"
-                        title="Edit option"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          if (window.confirm(`Delete "${acc.name}"?`)) {
-                            deleteAccommodation(acc.id);
-                          }
-                        }}
-                        className="p-1.5 text-rose-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                        title="Delete option"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
 
@@ -680,8 +569,8 @@ export const OverviewTab: React.FC = () => {
                     {acc.details}
                   </p>
 
-                  {/* Pricing */}
-                  <div className="bg-indigo-950 text-white p-3.5 rounded-2xl mb-3 space-y-0.5">
+                  {/* Pricing (sampai estimasi harga aja) */}
+                  <div className="bg-indigo-950 text-white p-3.5 rounded-2xl space-y-0.5">
                     <div className="text-[10px] text-indigo-300 uppercase tracking-widest font-black">Est. Price Per Person</div>
                     <div className="text-base font-black text-amber-300">
                       {formatCurrency(undefined, acc.pricePerNightPerPersonIDR)} <span className="text-[10px] text-indigo-200 font-normal">/ night</span>
@@ -690,77 +579,147 @@ export const OverviewTab: React.FC = () => {
                       Total: {formatCurrency(undefined, acc.totalPriceIDR)} (5 nights)
                     </div>
                   </div>
-
-                  {/* Pros and Cons */}
-                  <div className="space-y-2 mb-4 text-xs">
-                    <div>
-                      <span className="font-extrabold text-emerald-700 block mb-1">PROS (+)</span>
-                      <ul className="space-y-1 text-slate-700 pl-2 border-l-2 border-emerald-400 font-medium">
-                        {acc.pros.map((pro, idx) => (
-                          <li key={idx}>• {pro}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div>
-                      <span className="font-extrabold text-rose-600 block mb-1">CONS (-)</span>
-                      <ul className="space-y-1 text-slate-700 pl-2 border-l-2 border-rose-400 font-medium">
-                        {acc.cons.map((con, idx) => (
-                          <li key={idx}>• {con}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vote Button, Book Now & Voters */}
-                <div className="pt-3 border-t border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-xs text-indigo-400 font-bold mr-1">Votes ({acc.votes.length}):</span>
-                    {acc.votes.length === 0 ? (
-                      <span className="text-xs text-indigo-300 italic">No votes yet</span>
-                    ) : (
-                      acc.votes.map(v => (
-                        <span
-                          key={v}
-                          className="px-2 py-0.5 bg-rose-100 text-rose-700 text-[10px] font-black rounded-full"
-                        >
-                          {v}
-                        </span>
-                      ))
-                    )}
-                  </div>
-
-                  <div className="flex items-center space-x-2 ml-auto">
-                    {acc.votes.length >= 3 && (
-                      <a
-                        href={acc.bookingLink || 'https://www.agoda.com'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs rounded-full shadow-md flex items-center space-x-1.5 transition animate-pulse"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        <span>BOOK NOW 🚀</span>
-                      </a>
-                    )}
-
-                    <button
-                      onClick={() => voteAccommodation(acc.id, currentMember)}
-                      className={`px-3.5 py-1.5 rounded-full text-xs font-black flex items-center space-x-1.5 transition ${
-                        hasVoted
-                          ? 'bg-indigo-600 text-white shadow-md'
-                          : 'bg-indigo-50 text-indigo-950 hover:bg-rose-500 hover:text-white border border-indigo-100'
-                      }`}
-                    >
-                      <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>{hasVoted ? 'Voted' : 'Vote This'}</span>
-                    </button>
-                  </div>
                 </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Detail Accommodation Modal */}
+      {showDetailAccModal && detailAcc && (
+        <div
+          onClick={() => setShowDetailAccModal(false)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto space-y-4"
+          >
+            
+            <div className="flex items-start justify-between pb-2 border-b border-indigo-100">
+              <div>
+                <h3 className="text-lg font-black text-indigo-950 flex items-center gap-2">
+                  <span>{detailAcc.name}</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-lg bg-amber-100 text-amber-800 text-xs font-black">
+                    ★ {detailAcc.rating}
+                  </span>
+                </h3>
+                <p className="text-xs text-indigo-500 font-medium flex items-center space-x-1 mt-0.5">
+                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span>{detailAcc.location}</span>
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDetailAccModal(false)}
+                className="p-1.5 text-indigo-400 hover:text-indigo-950 rounded-full hover:bg-indigo-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Photos */}
+            <div className="grid grid-cols-3 gap-1.5 rounded-2xl overflow-hidden h-32 relative">
+              {detailAcc.photos.map((photo, pIdx) => (
+                <img
+                  key={pIdx}
+                  src={photo}
+                  alt={`${detailAcc.name} ${pIdx}`}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ))}
+            </div>
+
+            <p className="text-xs font-semibold text-indigo-900 bg-indigo-50/60 p-2.5 rounded-xl border border-indigo-100/60">
+              {detailAcc.details}
+            </p>
+
+            {/* Pricing */}
+            <div className="bg-indigo-950 text-white p-3.5 rounded-2xl space-y-0.5">
+              <div className="text-[10px] text-indigo-300 uppercase tracking-widest font-black">Est. Price Per Person</div>
+              <div className="text-base font-black text-amber-300">
+                {formatCurrency(undefined, detailAcc.pricePerNightPerPersonIDR)} <span className="text-[10px] text-indigo-200 font-normal">/ night</span>
+              </div>
+              <div className="text-[10px] text-indigo-300 font-medium">
+                Total: {formatCurrency(undefined, detailAcc.totalPriceIDR)} (5 nights)
+              </div>
+            </div>
+
+            {/* Pros & Cons */}
+            <div className="space-y-2 text-xs bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+              <div>
+                <span className="font-extrabold text-emerald-700 block mb-1">PROS (+)</span>
+                <ul className="space-y-1 text-slate-700 pl-2 border-l-2 border-emerald-400 font-medium">
+                  {detailAcc.pros.map((pro, idx) => (
+                    <li key={idx}>• {pro}</li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <span className="font-extrabold text-rose-600 block mb-1">CONS (-)</span>
+                <ul className="space-y-1 text-slate-700 pl-2 border-l-2 border-rose-400 font-medium">
+                  {detailAcc.cons.map((con, idx) => (
+                    <li key={idx}>• {con}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Votes & Actions */}
+            <div className="pt-3 border-t border-indigo-100 flex items-center justify-between gap-2">
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    voteAccommodation(detailAcc.id, currentMember);
+                    setDetailAcc({
+                      ...detailAcc,
+                      votes: detailAcc.votes.includes(currentMember)
+                        ? detailAcc.votes.filter(v => v !== currentMember)
+                        : [...detailAcc.votes, currentMember]
+                    });
+                  }}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-black flex items-center space-x-1.5 transition ${
+                    detailAcc.votes.includes(currentMember)
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-indigo-50 text-indigo-950 hover:bg-rose-500 hover:text-white border border-indigo-100'
+                  }`}
+                >
+                  <ThumbsUp className="w-3.5 h-3.5" />
+                  <span>{detailAcc.votes.includes(currentMember) ? 'Voted' : 'Vote This'}</span>
+                </button>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => {
+                    const accToEdit = detailAcc;
+                    setShowDetailAccModal(false);
+                    openEditAccModal(accToEdit);
+                  }}
+                  className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 rounded-xl font-bold text-xs flex items-center space-x-1 transition"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Edit</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (window.confirm(`Delete "${detailAcc.name}"?`)) {
+                      deleteAccommodation(detailAcc.id);
+                      setShowDetailAccModal(false);
+                    }
+                  }}
+                  className="px-3.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl font-bold text-xs flex items-center space-x-1 transition"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Hapus</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Essential Documents & Currency Converter Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -896,15 +855,15 @@ export const OverviewTab: React.FC = () => {
                       <div className="pt-2 border-t border-indigo-100/60">
                         <span className="text-[10px] text-indigo-400 font-bold block mb-1.5">All Friends Status:</span>
                         <div className="flex flex-wrap items-center gap-1.5">
-                          {ALL_MEMBERS.map(m => {
-                            const mReady = doc.readyMembers.includes(m);
+                          {['Dhila', 'Dito', 'Tya', 'Adel', 'Anis'].map(m => {
+                            const mReady = doc.readyMembers.includes(m as any);
                             return (
                               <button
                                 key={m}
                                 type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleDocumentMember(doc.id, m);
+                                  toggleDocumentMember(doc.id, m as any);
                                 }}
                                 className={`px-2.5 py-1 rounded-full text-[10px] font-black transition flex items-center space-x-1 ${
                                   mReady
@@ -1018,8 +977,14 @@ export const OverviewTab: React.FC = () => {
 
       {/* Accommodation Modal (Add / Edit) */}
       {showAccModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto">
+        <div
+          onClick={() => setShowAccModal(false)}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-5 sm:p-6 max-w-lg w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-2">
                 <Building className="w-5 h-5 text-indigo-600" />
@@ -1181,8 +1146,14 @@ export const OverviewTab: React.FC = () => {
 
       {/* Essential Document Add/Edit Modal */}
       {showDocModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto">
+        <div
+          onClick={() => setShowDocModal(false)}
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-indigo-100 max-h-[90vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-indigo-100 mb-4">
               <h3 className="text-lg font-black text-indigo-950 flex items-center space-x-2">
                 <FileCheck className="w-5 h-5 text-indigo-600" />
