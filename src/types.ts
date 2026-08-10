@@ -5,6 +5,8 @@ export const ALL_MEMBERS: MemberName[] = ['Abit', 'Aisha', 'Alin', 'Bila', 'Rish
 export type Currency = 'THB' | 'IDR';
 
 export type NoteStatus = 'Done' | 'Upcoming' | 'To Schedule';
+export type NoteColor = 'yellow' | 'pink' | 'blue' | 'green' | 'purple' | 'amber';
+export type PrepCategory = 'Preparation' | 'Document' | 'Booking' | 'Meeting' | 'Emergency & Contacts' | 'Tips & Packing' | 'Ideas' | 'General';
 
 export interface PreparationNote {
   id: string;
@@ -13,7 +15,11 @@ export interface PreparationNote {
   notes?: string;
   status: NoteStatus;
   assignee?: MemberName | 'All';
-  category?: 'Document' | 'Booking' | 'Meeting' | 'Preparation';
+  category?: PrepCategory | string;
+  color?: NoteColor;
+  isPinned?: boolean;
+  tags?: string[];
+  author?: MemberName;
 }
 
 export type WishlistCategory = 'Shopping' | 'Photo Spot' | 'Activity' | 'Café' | 'Dining';
@@ -29,6 +35,7 @@ export interface WishlistItem {
   proposedBy: MemberName;
   notes?: string;
   location?: string;
+  mapsUrl?: string;
   imageUrl?: string;
   linkUrl?: string;
   votes?: MemberName[];
@@ -134,20 +141,5 @@ export interface EssentialDocument {
   readyMembers: MemberName[];
   criticalNotice?: string;
   targetDate?: string;
-}
-
-export type NoteColor = 'yellow' | 'pink' | 'blue' | 'green' | 'purple' | 'amber';
-export type RandomNoteCategory = 'General' | 'Ideas' | 'Tips & Packing' | 'Emergency & Contacts' | 'Food & Places';
-
-export interface RandomNote {
-  id: string;
-  title: string;
-  content: string;
-  category: RandomNoteCategory;
-  color: NoteColor;
-  author: MemberName;
-  isPinned?: boolean;
-  createdAt: string;
-  tags?: string[];
 }
 
