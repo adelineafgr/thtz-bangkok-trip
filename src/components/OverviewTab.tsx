@@ -596,29 +596,7 @@ export const OverviewTab: React.FC = () => {
 
                   {/* Vote button & Voted members list below estimated price */}
                   <div className="mt-3 pt-3 border-t border-indigo-100/80 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={e => {
-                          e.stopPropagation();
-                          voteAccommodation(acc.id, currentMember);
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-black flex items-center space-x-1.5 transition ${
-                          hasVoted
-                            ? 'bg-indigo-600 text-white shadow-xs hover:bg-indigo-700'
-                            : 'bg-indigo-50 text-indigo-950 border border-indigo-200 hover:bg-indigo-100'
-                        }`}
-                      >
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                        <span>{hasVoted ? 'Voted' : 'Vote This'}</span>
-                      </button>
-
-                      <div className="text-[11px] font-bold text-indigo-950">
-                        {acc.votes.length} {acc.votes.length === 1 ? 'Vote' : 'Votes'}
-                      </div>
-                    </div>
-
-                    {/* Member names who voted */}
+                    {/* Member names who voted (placed above vote button) */}
                     <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
                       <span className="text-[10px] font-bold text-indigo-400">Voted by:</span>
                       {acc.votes.length > 0 ? (
@@ -636,6 +614,37 @@ export const OverviewTab: React.FC = () => {
                         ))
                       ) : (
                         <span className="text-[10px] text-slate-400 font-normal italic">No votes yet</span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          voteAccommodation(acc.id, currentMember);
+                        }}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center space-x-1.5 transition ${
+                          hasVoted
+                            ? 'bg-indigo-600 text-white shadow-xs hover:bg-indigo-700'
+                            : 'bg-indigo-50 text-indigo-950 border border-indigo-200 hover:bg-indigo-100'
+                        }`}
+                      >
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                        <span>{hasVoted ? 'Voted' : 'Vote This'}</span>
+                      </button>
+
+                      {acc.votes.length > 2 && (
+                        <a
+                          href={acc.bookingLink || `https://www.google.com/search?q=${encodeURIComponent(acc.name + ' Bangkok booking')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm inline-flex items-center space-x-1.5 transition"
+                        >
+                          <span>Book Now</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
                       )}
                     </div>
                   </div>
@@ -740,30 +749,64 @@ export const OverviewTab: React.FC = () => {
             </div>
 
             {/* Votes & Actions */}
-            <div className="pt-3 border-t border-indigo-100 flex items-center justify-between gap-2">
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => {
-                    voteAccommodation(detailAcc.id, currentMember);
-                    setDetailAcc({
-                      ...detailAcc,
-                      votes: detailAcc.votes.includes(currentMember)
-                        ? detailAcc.votes.filter(v => v !== currentMember)
-                        : [...detailAcc.votes, currentMember]
-                    });
-                  }}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-black flex items-center space-x-1.5 transition ${
-                    detailAcc.votes.includes(currentMember)
-                      ? 'bg-indigo-600 text-white shadow-md'
-                      : 'bg-indigo-50 text-indigo-950 hover:bg-rose-500 hover:text-white border border-indigo-100'
-                  }`}
-                >
-                  <ThumbsUp className="w-3.5 h-3.5" />
-                  <span>{detailAcc.votes.includes(currentMember) ? 'Voted' : 'Vote This'}</span>
-                </button>
+            <div className="pt-3 border-t border-indigo-100 space-y-2.5">
+              {/* Member names who voted */}
+              <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
+                <span className="text-[10px] font-bold text-indigo-400">Voted by:</span>
+                {detailAcc.votes.length > 0 ? (
+                  detailAcc.votes.map(memberName => (
+                    <span
+                      key={memberName}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                        memberName === currentMember
+                          ? 'bg-indigo-100 text-indigo-900 border border-indigo-300'
+                          : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {memberName}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-[10px] text-slate-400 font-normal italic">No votes yet</span>
+                )}
               </div>
 
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      voteAccommodation(detailAcc.id, currentMember);
+                      setDetailAcc({
+                        ...detailAcc,
+                        votes: detailAcc.votes.includes(currentMember)
+                          ? detailAcc.votes.filter(v => v !== currentMember)
+                          : [...detailAcc.votes, currentMember]
+                      });
+                    }}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-black flex items-center space-x-1.5 transition ${
+                      detailAcc.votes.includes(currentMember)
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'bg-indigo-50 text-indigo-950 hover:bg-indigo-100 border border-indigo-100'
+                    }`}
+                  >
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                    <span>{detailAcc.votes.includes(currentMember) ? 'Voted' : 'Vote This'}</span>
+                  </button>
+
+                  {detailAcc.votes.length > 2 && (
+                    <a
+                      href={detailAcc.bookingLink || `https://www.google.com/search?q=${encodeURIComponent(detailAcc.name + ' Bangkok booking')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-1.5 rounded-xl text-xs font-black bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm inline-flex items-center space-x-1.5 transition"
+                    >
+                      <span>Book Now</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2">
                 <button
                   onClick={() => {
                     const accToEdit = detailAcc;
@@ -789,6 +832,7 @@ export const OverviewTab: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
 
           </div>
         </div>
