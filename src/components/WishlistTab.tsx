@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTrip } from '../context/TripContext';
 import { WishlistCategory, MemberName, ALL_MEMBERS, WishlistItem } from '../types';
+import { compressImageFile } from '../lib/imageCompressor';
 import {
   Heart,
   ShoppingBag,
@@ -58,22 +59,22 @@ export const WishlistTab: React.FC = () => {
 
   const categories: WishlistCategory[] = ['Shopping', 'Photo Spot', 'Activity', 'Café', 'Dining'];
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File foto terlalu besar (Maksimal 5MB)');
+    if (file.size > 10 * 1024 * 1024) {
+      alert('File foto terlalu besar (Maksimal 10MB)');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setImageUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImageFile(file, 600, 0.6);
+      setImageUrl(compressed);
+    } catch (err) {
+      console.error('Failed to process image:', err);
+      alert('Gagal memproses foto. Silakan coba lagi.');
+    }
   };
 
   // Filter logic
