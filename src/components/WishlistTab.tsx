@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTrip } from '../context/TripContext';
 import { WishlistCategory, MemberName, ALL_MEMBERS, WishlistItem } from '../types';
+import { parseMediaUrl, extractUrlFromEmbedCode } from '../utils/mediaUtils';
 import {
   Heart,
   ShoppingBag,
@@ -23,9 +24,103 @@ import {
   Filter,
   ExternalLink,
   Globe,
-  Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Play,
+  Sparkles,
+  Link as LinkIcon,
+  Video
 } from 'lucide-react';
+
+/**
+ * Card Media Preview for Wishlist / Bucketlist items
+ */
+const WishlistCardMediaPreview: React.FC<{ item: WishlistItem }> = ({ item }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const urlToParse = item.imageUrl || item.linkUrl || '';
+  if (!urlToParse) return null;
+
+  const parsed = parseMediaUrl(urlToParse);
+
+  // 1. YouTube
+  if (parsed.youtubeId) {
+    if (isPlaying) {
+      return (
+        <iframe
+          src={`https://www.youtube.com/embed/${parsed.youtubeId}?autoplay=1`}
+          title={item.title}
+          className="w-full h-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      );
+    }
+
+    return (
+      <div
+        onClick={() => setIsPlaying(true)}
+        className="w-full h-full cursor-pointer relative group"
+        title="Klik untuk putar video"
+      >
+        <img
+          src={`https://img.youtube.com/vi/${parsed.youtubeId}/hqdefault.jpg`}
+          alt={item.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+        />
+      </div>
+    );
+  }
+
+  // 2. Instagram
+  if (parsed.instagramCode) {
+    return (
+      <div className="w-full h-full overflow-hidden bg-slate-900 relative">
+        <iframe
+          src={`https://www.instagram.com/p/${parsed.instagramCode}/embed`}
+          title={item.title}
+          className="w-full h-full border-0 bg-white"
+          scrolling="no"
+        />
+      </div>
+    );
+  }
+
+  // 3. TikTok
+  if (parsed.tiktokId) {
+    return (
+      <div className="w-full h-full overflow-hidden bg-slate-950 relative">
+        <iframe
+          src={`https://www.tiktok.com/embed/v2/${parsed.tiktokId}`}
+          title={item.title}
+          className="w-full h-full border-0 bg-slate-950"
+          scrolling="no"
+        />
+      </div>
+    );
+  }
+
+  // 4. Image / Link fallback
+  const displaySrc = item.imageUrl || parsed.thumbnailUrl || urlToParse;
+
+  return (
+    <div
+      onClick={() => {
+        if (item.linkUrl) window.open(item.linkUrl, '_blank');
+      }}
+      className="w-full h-full cursor-pointer group"
+      title="Klik untuk buka link"
+    >
+      <img
+        src={displaySrc}
+        alt={item.title}
+        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+        referrerPolicy="no-referrer"
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=800&auto=format&fit=crop';
+        }}
+      />
+    </div>
+  );
+};
 
 export const WishlistTab: React.FC = () => {
   const {
@@ -58,22 +153,12 @@ export const WishlistTab: React.FC = () => {
 
   const categories: WishlistCategory[] = ['Shopping', 'Photo Spot', 'Activity', 'Café', 'Dining'];
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('File foto terlalu besar (Maksimal 5MB)');
-      return;
+  const handleMediaUrlChange = (inputVal: string) => {
+    const clean = extractUrlFromEmbedCode(inputVal);
+    setImageUrl(clean);
+    if (!linkUrl.trim()) {
+      setLinkUrl(clean);
     }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setImageUrl(reader.result);
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   // Filter logic
@@ -123,29 +208,33 @@ export const WishlistTab: React.FC = () => {
     if (!title.trim()) return;
 
     const thbVal = estimatedPriceTHB ? parseFloat(estimatedPriceTHB) : undefined;
+    const cleanImage = extractUrlFromEmbedCode(imageUrl.trim());
+    const cleanLink = extractUrlFromEmbedCode(linkUrl.trim());
+    const finalImage = cleanImage || cleanLink || undefined;
+    const finalLink = cleanLink || cleanImage || undefined;
 
     if (editingItemId) {
       editWishlistItem(editingItemId, {
-        title,
+        title: title.trim(),
         category,
         estimatedPriceTHB: thbVal,
-        imageUrl: imageUrl.trim() || undefined,
-        notes,
-        location,
+        imageUrl: finalImage,
+        notes: notes.trim(),
+        location: location.trim(),
         mapsUrl: mapsUrl.trim() || undefined,
-        linkUrl: linkUrl.trim() || undefined,
+        linkUrl: finalLink,
         proposedBy
       });
     } else {
       addWishlistItem({
-        title,
+        title: title.trim(),
         category,
         estimatedPriceTHB: thbVal,
-        imageUrl: imageUrl.trim() || undefined,
-        notes,
-        location,
+        imageUrl: finalImage,
+        notes: notes.trim(),
+        location: location.trim(),
         mapsUrl: mapsUrl.trim() || undefined,
-        linkUrl: linkUrl.trim() || undefined,
+        linkUrl: finalLink,
         proposedBy,
         status: 'Want to Go'
       });
@@ -370,22 +459,17 @@ export const WishlistTab: React.FC = () => {
                 >
                   <div>
                     {/* Cover image if available */}
-                    {item.imageUrl ? (
+                    {(item.imageUrl || item.linkUrl) ? (
                       <div className="relative aspect-4/3 sm:aspect-square overflow-hidden bg-slate-900">
-                        <img
-                          src={item.imageUrl}
-                          alt={item.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                          referrerPolicy="no-referrer"
-                        />
+                        <WishlistCardMediaPreview item={item} />
                         {/* Category Badge Overlay */}
-                        <div className="absolute top-3 left-3 flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
+                        <div className="absolute top-3 left-3 flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold border border-white/20 z-10 pointer-events-none">
                           {getCategoryIcon(item.category)}
                           <span className="uppercase">{item.category}</span>
                         </div>
                         {/* Vote Badge Overlay */}
                         {voteCount > 0 && (
-                          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold shadow-sm flex items-center space-x-1">
+                          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold shadow-sm flex items-center space-x-1 z-10 pointer-events-none">
                             <ThumbsUp className="w-3 h-3 fill-slate-950" />
                             <span>{voteCount}</span>
                           </div>
@@ -785,57 +869,71 @@ export const WishlistTab: React.FC = () => {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>Attached Link / Website (Optional)</span>
+                  <span>Link Referensi / Foto / Video / Website (Opsional)</span>
                 </label>
                 <div className="relative">
                   <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                   <input
-                    type="url"
-                    value={linkUrl}
-                    onChange={e => setLinkUrl(e.target.value)}
-                    placeholder="https://..."
+                    type="text"
+                    value={linkUrl || imageUrl}
+                    onChange={e => handleMediaUrlChange(e.target.value)}
+                    placeholder="Tempel link TikTok, IG, YouTube, Pinterest, atau URL Foto"
                     className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Foto / Sampul Tempat (Opsional)</label>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <label className="cursor-pointer px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 inline-flex items-center space-x-1.5 shrink-0 transition">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Upload Foto</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-                    <input
-                      type="url"
-                      value={imageUrl}
-                      onChange={e => setImageUrl(e.target.value)}
-                      placeholder="Atau tempel URL foto (https://...)"
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  {imageUrl && (
-                    <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
-                      <img src={imageUrl} alt="Preview" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setImageUrl('')}
-                        className="absolute top-1 right-1 p-0.5 bg-black/60 text-white rounded-full hover:bg-black/80"
-                        title="Hapus foto"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
+              {/* Automatic Live Link Preview Box */}
+              {(linkUrl || imageUrl) && (() => {
+                const activeUrl = linkUrl || imageUrl;
+                const parsed = parseMediaUrl(activeUrl);
+
+                return (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between text-xs font-extrabold text-emerald-900">
+                      <span className="flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        Preview Terdeteksi ({parsed.platformName})
+                      </span>
+                      <span className="text-[10px] bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded-full font-black">
+                        Otomatis Dibuat
+                      </span>
                     </div>
-                  )}
-                </div>
-              </div>
+
+                    <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 border border-emerald-300/60 shadow-xs">
+                      {parsed.youtubeId ? (
+                        <img
+                          src={`https://img.youtube.com/vi/${parsed.youtubeId}/hqdefault.jpg`}
+                          alt="YouTube preview"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : parsed.instagramCode ? (
+                        <iframe
+                          src={`https://www.instagram.com/p/${parsed.instagramCode}/embed`}
+                          title="Instagram preview"
+                          className="w-full h-[220px] border-0 bg-white"
+                        />
+                      ) : parsed.tiktokId ? (
+                        <iframe
+                          src={`https://www.tiktok.com/embed/v2/${parsed.tiktokId}`}
+                          title="TikTok preview"
+                          className="w-full h-[220px] border-0 bg-slate-950"
+                        />
+                      ) : (
+                        <img
+                          src={activeUrl}
+                          alt="Live preview"
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={e => {
+                            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=800&auto=format&fit=crop';
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Notes / Recommendations</label>
