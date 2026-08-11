@@ -66,6 +66,11 @@ const WishlistCardMediaPreview: React.FC<{ item: WishlistItem }> = ({ item }) =>
           alt={item.title}
           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
         />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition">
+          <div className="w-12 h-12 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+            <Play className="w-6 h-6 fill-white ml-0.5 text-white" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -98,26 +103,66 @@ const WishlistCardMediaPreview: React.FC<{ item: WishlistItem }> = ({ item }) =>
     );
   }
 
-  // 4. Image / Link fallback
-  const displaySrc = item.imageUrl || parsed.thumbnailUrl || urlToParse;
+  // 4. Image URL (Direct image or Pinterest)
+  const isDirectImage = parsed.platformName === 'Image' || parsed.platformName === 'Pinterest' || (item.imageUrl && item.imageUrl.length > 5);
+
+  if (isDirectImage && parsed.platformName !== 'Web Link') {
+    const displaySrc = item.imageUrl || parsed.thumbnailUrl || (urlToParse.match(/\.(jpeg|jpg|png|gif|webp|svg)(\?.*)?$/i) ? urlToParse : '');
+    if (displaySrc) {
+      return (
+        <div
+          onClick={() => {
+            if (item.linkUrl) window.open(item.linkUrl, '_blank');
+          }}
+          className="w-full h-full cursor-pointer group"
+          title="Klik untuk buka link"
+        >
+          <img
+            src={displaySrc}
+            alt={item.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=800&auto=format&fit=crop';
+            }}
+          />
+        </div>
+      );
+    }
+  }
+
+  // 5. Generic Web Link (e.g. chatuchakmarket.org)
+  let domain = urlToParse;
+  try {
+    domain = new URL(urlToParse).hostname.replace('www.', '');
+  } catch {
+    domain = urlToParse;
+  }
 
   return (
     <div
-      onClick={() => {
-        if (item.linkUrl) window.open(item.linkUrl, '_blank');
-      }}
-      className="w-full h-full cursor-pointer group"
-      title="Klik untuk buka link"
+      onClick={() => window.open(urlToParse, '_blank')}
+      className="w-full h-full cursor-pointer bg-gradient-to-br from-indigo-950 via-slate-900 to-amber-950 p-5 flex flex-col justify-between group relative overflow-hidden"
+      title="Klik untuk buka website"
     >
-      <img
-        src={displaySrc}
-        alt={item.title}
-        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-        referrerPolicy="no-referrer"
-        onError={(e) => {
-          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=800&auto=format&fit=crop';
-        }}
-      />
+      <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition duration-500" />
+      <div className="flex items-center justify-between text-amber-300 text-xs font-bold z-10">
+        <span className="flex items-center gap-1">
+          <Globe className="w-3.5 h-3.5 text-amber-400" />
+          <span>Web Link</span>
+        </span>
+        <ExternalLink className="w-3.5 h-3.5 text-amber-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition" />
+      </div>
+
+      <div className="z-10 space-y-1 my-auto">
+        <p className="text-white font-extrabold text-xs sm:text-sm line-clamp-2 leading-snug">{item.title}</p>
+        <p className="text-amber-200/80 text-[11px] font-mono truncate">{domain}</p>
+      </div>
+
+      <div className="z-10 pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-slate-300">
+        <span>Buka Referensi</span>
+        <span className="bg-white/10 px-2 py-0.5 rounded-full text-white font-bold">Kunjungi</span>
+      </div>
     </div>
   );
 };
@@ -156,9 +201,7 @@ export const WishlistTab: React.FC = () => {
   const handleMediaUrlChange = (inputVal: string) => {
     const clean = extractUrlFromEmbedCode(inputVal);
     setImageUrl(clean);
-    if (!linkUrl.trim()) {
-      setLinkUrl(clean);
-    }
+    setLinkUrl(clean);
   };
 
   // Filter logic
@@ -194,11 +237,12 @@ export const WishlistTab: React.FC = () => {
     setTitle(item.title);
     setCategory(item.category);
     setEstimatedPriceTHB(item.estimatedPriceTHB ? String(item.estimatedPriceTHB) : '');
-    setImageUrl(item.imageUrl || '');
+    const media = extractUrlFromEmbedCode(item.imageUrl || item.linkUrl || '');
+    setImageUrl(media);
+    setLinkUrl(media);
     setNotes(item.notes || '');
     setLocation(item.location || '');
     setMapsUrl(item.mapsUrl || '');
-    setLinkUrl(item.linkUrl || '');
     setProposedBy(item.proposedBy || currentMember);
     setShowAddModal(true);
   };
@@ -208,21 +252,19 @@ export const WishlistTab: React.FC = () => {
     if (!title.trim()) return;
 
     const thbVal = estimatedPriceTHB ? parseFloat(estimatedPriceTHB) : undefined;
-    const cleanImage = extractUrlFromEmbedCode(imageUrl.trim());
-    const cleanLink = extractUrlFromEmbedCode(linkUrl.trim());
-    const finalImage = cleanImage || cleanLink || undefined;
-    const finalLink = cleanLink || cleanImage || undefined;
+    const cleanMedia = extractUrlFromEmbedCode((linkUrl || imageUrl).trim());
+    const finalMedia = cleanMedia || undefined;
 
     if (editingItemId) {
       editWishlistItem(editingItemId, {
         title: title.trim(),
         category,
         estimatedPriceTHB: thbVal,
-        imageUrl: finalImage,
+        imageUrl: finalMedia,
+        linkUrl: finalMedia,
         notes: notes.trim(),
         location: location.trim(),
         mapsUrl: mapsUrl.trim() || undefined,
-        linkUrl: finalLink,
         proposedBy
       });
     } else {
@@ -230,11 +272,11 @@ export const WishlistTab: React.FC = () => {
         title: title.trim(),
         category,
         estimatedPriceTHB: thbVal,
-        imageUrl: finalImage,
+        imageUrl: finalMedia,
+        linkUrl: finalMedia,
         notes: notes.trim(),
         location: location.trim(),
         mapsUrl: mapsUrl.trim() || undefined,
-        linkUrl: finalLink,
         proposedBy,
         status: 'Want to Go'
       });
@@ -774,7 +816,7 @@ export const WishlistTab: React.FC = () => {
             onClick={e => e.stopPropagation()}
             className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-150"
           >
-            <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-1 pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900">
                 {editingItemId ? 'Edit Place Item' : 'Add Bucketlist Place'}
               </h3>
@@ -785,6 +827,9 @@ export const WishlistTab: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
+            <p className="text-xs text-slate-500 mb-3">
+              Copy-paste link TikTok, Instagram, YouTube, Pinterest, Embed Code, atau Gambar. Preview akan muncul otomatis!
+            </p>
 
             <form onSubmit={handleSaveSubmit} className="space-y-3 text-xs">
               <div>
@@ -797,6 +842,26 @@ export const WishlistTab: React.FC = () => {
                   className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   required
                 />
+              </div>
+
+              {/* Media URL / Reel / Embed Link - PROMINENT WITH AUTO PREVIEW */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Paste Link / Embed Code (Foto / Video / Web)</span>
+                  <span className="text-[10px] text-indigo-600 font-bold flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" /> Auto Preview
+                  </span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={linkUrl || imageUrl}
+                    onChange={e => handleMediaUrlChange(e.target.value)}
+                    placeholder="Paste link TikTok, Instagram, YouTube, Pinterest, Embed Code, or Image URL..."
+                    className="w-full pl-8 pr-3 py-2 border border-indigo-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none bg-indigo-50/30"
+                  />
+                  <LinkIcon className="w-4 h-4 text-indigo-500 absolute left-2.5 top-2.5" />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -867,22 +932,6 @@ export const WishlistTab: React.FC = () => {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>Link Referensi / Foto / Video / Website (Opsional)</span>
-                </label>
-                <div className="relative">
-                  <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={linkUrl || imageUrl}
-                    onChange={e => handleMediaUrlChange(e.target.value)}
-                    placeholder="Tempel link TikTok, IG, YouTube, Pinterest, atau URL Foto"
-                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
               {/* Automatic Live Link Preview Box */}
               {(linkUrl || imageUrl) && (() => {
                 const activeUrl = linkUrl || imageUrl;
@@ -919,7 +968,7 @@ export const WishlistTab: React.FC = () => {
                           title="TikTok preview"
                           className="w-full h-[220px] border-0 bg-slate-950"
                         />
-                      ) : (
+                      ) : (parsed.platformName === 'Image' || parsed.platformName === 'Pinterest' || activeUrl.match(/\.(jpeg|jpg|png|gif|webp|svg)(\?.*)?$/i)) ? (
                         <img
                           src={activeUrl}
                           alt="Live preview"
@@ -929,6 +978,12 @@ export const WishlistTab: React.FC = () => {
                             (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=800&auto=format&fit=crop';
                           }}
                         />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-indigo-950 via-slate-900 to-amber-950 p-4 flex flex-col items-center justify-center text-center text-white space-y-1.5">
+                          <Globe className="w-8 h-8 text-amber-400" />
+                          <span className="text-xs font-bold truncate max-w-[90%]">{activeUrl}</span>
+                          <span className="text-[10px] text-amber-200/80 bg-amber-900/60 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-semibold">Web Link Terdeteksi</span>
+                        </div>
                       )}
                     </div>
                   </div>
