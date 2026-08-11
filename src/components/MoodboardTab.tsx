@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTrip } from '../context/TripContext';
 import { MoodboardCategory, MoodboardItem, MemberName, ALL_MEMBERS } from '../types';
+import { compressImageFile } from '../lib/imageCompressor';
 import {
   Camera,
   Play,
@@ -49,18 +50,18 @@ export const MoodboardTab: React.FC = () => {
     return true;
   });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        setThumbnailUrl(result);
+      try {
+        const compressed = await compressImageFile(file, 600, 0.6);
+        setThumbnailUrl(compressed);
         if (!mediaUrl.trim() || mediaType === 'image') {
-          setMediaUrl(result);
+          setMediaUrl(compressed);
         }
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.error('Failed to process image:', err);
+      }
     }
   };
 
@@ -93,24 +94,26 @@ export const MoodboardTab: React.FC = () => {
     const finalMediaUrl = mediaUrl.trim() || thumbnailUrl.trim();
     if (!title.trim() || !finalMediaUrl) return;
 
+    const thumb = thumbnailUrl.trim() || (mediaType === 'image' ? finalMediaUrl : '');
+
     if (editingItemId) {
       editMoodboardItem(editingItemId, {
-        title,
+        title: title.trim(),
         category,
         mediaType,
         mediaUrl: finalMediaUrl,
-        thumbnailUrl: thumbnailUrl || (mediaType === 'image' ? finalMediaUrl : undefined),
-        caption,
+        thumbnailUrl: thumb,
+        caption: caption.trim(),
         addedBy
       });
     } else {
       addMoodboardItem({
-        title,
+        title: title.trim(),
         category,
         mediaType,
         mediaUrl: finalMediaUrl,
-        thumbnailUrl: thumbnailUrl || (mediaType === 'image' ? finalMediaUrl : undefined),
-        caption,
+        thumbnailUrl: thumb,
+        caption: caption.trim(),
         addedBy
       });
     }
