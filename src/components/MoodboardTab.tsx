@@ -1,521 +1,828 @@
-import React, { useState } from 'react';
-import { useTrip } from '../context/TripContext';
-import { MoodboardCategory, MoodboardItem, MemberName, ALL_MEMBERS } from '../types';
-import { compressImageFile } from '../lib/imageCompressor';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { compressDataObjects } from '../lib/imageCompressor';
 import {
-  Camera,
-  Play,
-  Heart,
-  Plus,
-  Video,
-  ExternalLink,
-  Sparkles,
-  Trash2,
-  Tv,
-  Film,
-  Image as ImageIcon,
-  Pencil,
-  Upload,
-  X
-} from 'lucide-react';
+  MemberName,
+  ALL_MEMBERS,
+  Currency,
+  PreparationNote,
+  WishlistItem,
+  MoodboardItem,
+  ExpenseItem,
+  KasDepositEntry,
+  MemberContribution,
+  MemberSettlement,
+  SettlementInstruction,
+  ItineraryDay,
+  ItineraryActivity,
+  AccommodationOption,
+  EssentialDocument
+} from '../types';
+import {
+  DEFAULT_EXCHANGE_RATE_IDR_PER_THB,
+  DEFAULT_MEMBERS_CONTRIBUTIONS,
+  INITIAL_PREPARATION_NOTES,
+  INITIAL_WISHLIST,
+  INITIAL_MOODBOARD,
+  INITIAL_EXPENSES,
+  INITIAL_ITINERARY,
+  INITIAL_ACCOMMODATION_OPTIONS,
+  INITIAL_ESSENTIAL_DOCUMENTS
+} from '../data/initialData';
 
-export const MoodboardTab: React.FC = () => {
-  const {
-    moodboard,
-    addMoodboardItem,
-    editMoodboardItem,
-    toggleMoodboardLike,
-    deleteMoodboardItem,
-    currentMember
-  } = useTrip();
+export const INITIAL_KAS_DEPOSITS: KasDepositEntry[] = [
+  { id: 'dep-1', source: 'Abit', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-2', source: 'Aisha', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-3', source: 'Alin', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-4', source: 'Bila', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' },
+  { id: 'dep-5', source: 'Risha', amountIDR: 3500000, date: '01/08/2026', notes: 'Setoran Kas Awal' }
+];
 
-  const [selectedCategory, setSelectedCategory] = useState<MoodboardCategory | 'All'>('All');
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
-  const [activeMediaModal, setActiveMediaModal] = useState<MoodboardItem | null>(null);
+export type TabType = 'overview' | 'itinerary' | 'prep' | 'wishlist' | 'moodboard' | 'expenses';
 
-  // Form State
-  const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<MoodboardCategory>('Outfit');
-  const [mediaType, setMediaType] = useState<'image' | 'video' | 'tiktok' | 'instagram'>('image');
-  const [mediaUrl, setMediaUrl] = useState('');
-  const [thumbnailUrl, setThumbnailUrl] = useState('');
-  const [caption, setCaption] = useState('');
-  const [addedBy, setAddedBy] = useState<MemberName>(currentMember);
+interface TripContextType {
+  currentMember: MemberName;
+  setCurrentMember: (member: MemberName) => void;
+  currency: Currency;
+  setCurrency: (c: Currency) => void;
+  exchangeRate: number;
+  setExchangeRate: (rate: number) => void;
+  activeTab: TabType;
+  setActiveTab: (tab: TabType) => void;
+  isCloudSynced: boolean;
+  
+  // Data
+  prepNotes: PreparationNote[];
+  wishlist: WishlistItem[];
+  moodboard: MoodboardItem[];
+  expenses: ExpenseItem[];
+  contributions: MemberContribution[];
+  kasDeposits: KasDepositEntry[];
+  itinerary: ItineraryDay[];
+  accommodations: AccommodationOption[];
+  essentialDocs: EssentialDocument[];
 
-  const categories: MoodboardCategory[] = ['Sleep Over', 'Outfit', 'Video', 'Color Hunt', 'Food', 'Inspiration'];
+  // CRUD Actions
+  addKasDeposit: (deposit: Omit<KasDepositEntry, 'id'>) => void;
+  editKasDeposit: (id: string, updated: Partial<KasDepositEntry>) => void;
+  deleteKasDeposit: (id: string) => void;
+  addPrepNote: (note: Omit<PreparationNote, 'id'>) => void;
+  editPrepNote: (id: string, updated: Partial<PreparationNote>) => void;
+  updatePrepNoteStatus: (id: string, status: PreparationNote['status']) => void;
+  deletePrepNote: (id: string) => void;
+  togglePinPrepNote: (id: string) => void;
 
-  const filteredItems = moodboard.filter(item => {
-    if (selectedCategory !== 'All' && item.category !== selectedCategory) return false;
-    return true;
+  addWishlistItem: (item: Omit<WishlistItem, 'id'>) => void;
+  editWishlistItem: (id: string, updated: Partial<WishlistItem>) => void;
+  toggleWishlistStatus: (id: string) => void;
+  deleteWishlistItem: (id: string) => void;
+  voteWishlist: (id: string, member: MemberName) => void;
+
+  addMoodboardItem: (item: Omit<MoodboardItem, 'id' | 'createdAt'>) => void;
+  editMoodboardItem: (id: string, updated: Partial<MoodboardItem>) => void;
+  toggleMoodboardLike: (id: string, member: MemberName) => void;
+  deleteMoodboardItem: (id: string) => void;
+
+  addExpense: (item: Omit<ExpenseItem, 'id'>) => void;
+  deleteExpense: (id: string) => void;
+  updateContribution: (member: MemberName, amountIDR: number) => void;
+
+  addItineraryActivity: (dayNumber: number, activity: Omit<ItineraryActivity, 'id'>) => void;
+  editItineraryActivity: (dayNumber: number, activityId: string, updated: Partial<ItineraryActivity>) => void;
+  deleteItineraryActivity: (dayNumber: number, activityId: string) => void;
+  toggleItineraryActivityDone: (dayNumber: number, activityId: string) => void;
+
+  voteAccommodation: (accId: string, member: MemberName) => void;
+  addAccommodation: (acc: Omit<AccommodationOption, 'id' | 'votes'>) => void;
+  editAccommodation: (id: string, acc: Partial<AccommodationOption>) => void;
+  deleteAccommodation: (id: string) => void;
+
+  toggleDocumentMember: (docId: string, member: MemberName) => void;
+  addEssentialDoc: (doc: Omit<EssentialDocument, 'id' | 'readyMembers'>) => void;
+  editEssentialDoc: (id: string, updated: Partial<EssentialDocument>) => void;
+  deleteEssentialDoc: (id: string) => void;
+
+  resetToDefault: () => void;
+
+  // Calculators
+  formatCurrency: (amountTHB?: number, amountIDR?: number) => string;
+  getKasSummary: () => {
+    totalKasInputIDR: number;
+    totalExpensesIDR: number;
+    saldoKasIDR: number;
+    totalKasInputTHB: number;
+    totalExpensesTHB: number;
+    saldoKasTHB: number;
+  };
+  getMemberSettlements: () => MemberSettlement[];
+  getSettlementInstructions: () => SettlementInstruction[];
+}
+
+const TripContext = createContext<TripContextType | undefined>(undefined);
+
+const STORAGE_KEY_PREFIX = 'bkk_trip_2026_';
+const TRIP_DOC_ID = 'bangkok2026';
+
+export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [currentMember, setCurrentMember] = useState<MemberName>(() => {
+    return (localStorage.getItem(`${STORAGE_KEY_PREFIX}current_member`) as MemberName) || 'Aisha';
   });
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const compressed = await compressImageFile(file, 600, 0.6);
-        setThumbnailUrl(compressed);
-        if (!mediaUrl.trim() || mediaType === 'image') {
-          setMediaUrl(compressed);
+  const [currency, setCurrency] = useState<Currency>(() => {
+    return (localStorage.getItem(`${STORAGE_KEY_PREFIX}currency`) as Currency) || 'IDR';
+  });
+
+  const [exchangeRate, setExchangeRate] = useState<number>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}exchange_rate`);
+    return saved ? parseFloat(saved) : DEFAULT_EXCHANGE_RATE_IDR_PER_THB;
+  });
+
+  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [isCloudSynced, setIsCloudSynced] = useState<boolean>(false);
+
+  // Persistence State
+  const [prepNotes, setPrepNotes] = useState<PreparationNote[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}prep_notes`);
+    return saved ? JSON.parse(saved) : INITIAL_PREPARATION_NOTES;
+  });
+
+  const [wishlist, setWishlist] = useState<WishlistItem[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}wishlist`);
+    return saved ? JSON.parse(saved) : INITIAL_WISHLIST;
+  });
+
+  const [moodboard, setMoodboard] = useState<MoodboardItem[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}moodboard`);
+    return saved ? JSON.parse(saved) : INITIAL_MOODBOARD;
+  });
+
+  const [expenses, setExpenses] = useState<ExpenseItem[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}expenses`);
+    return saved ? JSON.parse(saved) : INITIAL_EXPENSES;
+  });
+
+  const [contributions, setContributions] = useState<MemberContribution[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}contributions`);
+    return saved ? JSON.parse(saved) : DEFAULT_MEMBERS_CONTRIBUTIONS;
+  });
+
+  const [kasDeposits, setKasDeposits] = useState<KasDepositEntry[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}kas_deposits`);
+    return saved ? JSON.parse(saved) : INITIAL_KAS_DEPOSITS;
+  });
+
+  const [itinerary, setItinerary] = useState<ItineraryDay[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}itinerary`);
+    return saved ? JSON.parse(saved) : INITIAL_ITINERARY;
+  });
+
+  const [accommodations, setAccommodations] = useState<AccommodationOption[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}accommodations`);
+    return saved ? JSON.parse(saved) : INITIAL_ACCOMMODATION_OPTIONS;
+  });
+
+  const [essentialDocs, setEssentialDocs] = useState<EssentialDocument[]>(() => {
+    const saved = localStorage.getItem(`${STORAGE_KEY_PREFIX}essential_docs`);
+    return saved ? JSON.parse(saved) : INITIAL_ESSENTIAL_DOCUMENTS;
+  });
+
+  const isUpdatingFromCloud = useRef(false);
+  const isInitialCloudLoadDone = useRef(false);
+
+  // Helper function to strip undefined values before sending to Firestore
+  const removeUndefinedFields = (obj: any): any => {
+    if (obj === null || obj === undefined) return null;
+    if (Array.isArray(obj)) {
+      return obj.map(removeUndefinedFields);
+    }
+    if (typeof obj === 'object') {
+      const cleaned: Record<string, any> = {};
+      for (const key of Object.keys(obj)) {
+        const val = obj[key];
+        if (val !== undefined) {
+          cleaned[key] = removeUndefinedFields(val);
         }
-      } catch (err) {
-        console.error('Failed to process image:', err);
       }
+      return cleaned;
+    }
+    return obj;
+  };
+
+  // Helper to save data to Firebase Firestore
+  const syncToCloud = async (overrideData?: Record<string, any>) => {
+    try {
+      const tripRef = doc(db, 'trips', TRIP_DOC_ID);
+      const rawData = overrideData || {
+        prepNotes,
+        wishlist,
+        moodboard,
+        expenses,
+        contributions,
+        kasDeposits,
+        itinerary,
+        accommodations,
+        essentialDocs,
+        exchangeRate,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Asynchronously compress any large base64 image strings in payload to < 50KB
+      const compressedData = await compressDataObjects(rawData);
+      const cleanedData = removeUndefinedFields(compressedData);
+
+      await setDoc(tripRef, cleanedData, { merge: true });
+      setIsCloudSynced(true);
+    } catch (err) {
+      console.error('Firebase sync error:', err);
     }
   };
 
-  const openAddModal = () => {
-    setEditingItemId(null);
-    setTitle('');
-    setCategory('Outfit');
-    setMediaType('image');
-    setMediaUrl('');
-    setThumbnailUrl('');
-    setCaption('');
-    setAddedBy(currentMember);
-    setShowAddModal(true);
+  // Compress any existing legacy uncompressed images in state on mount
+  useEffect(() => {
+    const sanitizeExistingImages = async () => {
+      let changed = false;
+
+      const cleanWishlist = await compressDataObjects(wishlist);
+      if (JSON.stringify(cleanWishlist) !== JSON.stringify(wishlist)) {
+        setWishlist(cleanWishlist);
+        changed = true;
+      }
+
+      const cleanMoodboard = await compressDataObjects(moodboard);
+      if (JSON.stringify(cleanMoodboard) !== JSON.stringify(moodboard)) {
+        setMoodboard(cleanMoodboard);
+        changed = true;
+      }
+
+      if (changed) {
+        console.log('Sanitized legacy base64 images in state.');
+      }
+    };
+
+    sanitizeExistingImages();
+  }, []);
+
+  // Listen to Cloud Firestore realtime updates
+  useEffect(() => {
+    const tripRef = doc(db, 'trips', TRIP_DOC_ID);
+    const unsubscribe = onSnapshot(tripRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        isUpdatingFromCloud.current = true;
+
+        if (data.prepNotes) setPrepNotes(data.prepNotes);
+        if (data.wishlist) setWishlist(data.wishlist);
+        if (data.moodboard) setMoodboard(data.moodboard);
+        if (data.expenses) setExpenses(data.expenses);
+        if (data.contributions) setContributions(data.contributions);
+        if (data.kasDeposits) setKasDeposits(data.kasDeposits);
+        if (data.itinerary) setItinerary(data.itinerary);
+        if (data.accommodations) setAccommodations(data.accommodations);
+        if (data.essentialDocs) setEssentialDocs(data.essentialDocs);
+        if (data.exchangeRate) setExchangeRate(data.exchangeRate);
+
+        setIsCloudSynced(true);
+        isInitialCloudLoadDone.current = true;
+        setTimeout(() => {
+          isUpdatingFromCloud.current = false;
+        }, 300);
+      } else {
+        // Document does not exist yet -> populate with initial data
+        syncToCloud({
+          prepNotes: INITIAL_PREPARATION_NOTES,
+          wishlist: INITIAL_WISHLIST,
+          moodboard: INITIAL_MOODBOARD,
+          expenses: INITIAL_EXPENSES,
+          contributions: DEFAULT_MEMBERS_CONTRIBUTIONS,
+          itinerary: INITIAL_ITINERARY,
+          accommodations: INITIAL_ACCOMMODATION_OPTIONS,
+          essentialDocs: INITIAL_ESSENTIAL_DOCUMENTS,
+          exchangeRate: DEFAULT_EXCHANGE_RATE_IDR_PER_THB,
+          updatedAt: new Date().toISOString()
+        }).then(() => {
+          isInitialCloudLoadDone.current = true;
+        });
+      }
+    }, (error) => {
+      console.warn('Firestore subscription notice:', error);
+      isInitialCloudLoadDone.current = true;
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Save changes to localStorage & Firebase
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}current_member`, currentMember);
+  }, [currentMember]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}currency`, currency);
+  }, [currency]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}exchange_rate`, exchangeRate.toString());
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ exchangeRate });
+  }, [exchangeRate]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}prep_notes`, JSON.stringify(prepNotes));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ prepNotes });
+  }, [prepNotes]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}wishlist`, JSON.stringify(wishlist));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ wishlist });
+  }, [wishlist]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}moodboard`, JSON.stringify(moodboard));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ moodboard });
+  }, [moodboard]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}expenses`, JSON.stringify(expenses));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ expenses });
+  }, [expenses]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}contributions`, JSON.stringify(contributions));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ contributions });
+  }, [contributions]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}kas_deposits`, JSON.stringify(kasDeposits));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ kasDeposits });
+    
+    // Auto-update contributions for each member based on kasDeposits
+    const memberTotals: Record<MemberName, number> = {
+      Abit: 0, Aisha: 0, Alin: 0, Bila: 0, Risha: 0
+    };
+    kasDeposits.forEach(dep => {
+      if (dep.source in memberTotals) {
+        memberTotals[dep.source as MemberName] += dep.amountIDR;
+      }
+    });
+    setContributions(ALL_MEMBERS.map(m => ({ memberName: m, totalDebitIDR: memberTotals[m] })));
+  }, [kasDeposits]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}itinerary`, JSON.stringify(itinerary));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ itinerary });
+  }, [itinerary]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}accommodations`, JSON.stringify(accommodations));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ accommodations });
+  }, [accommodations]);
+
+  useEffect(() => {
+    localStorage.setItem(`${STORAGE_KEY_PREFIX}essential_docs`, JSON.stringify(essentialDocs));
+    if (isInitialCloudLoadDone.current && !isUpdatingFromCloud.current) syncToCloud({ essentialDocs });
+  }, [essentialDocs]);
+
+  // Actions
+  const addPrepNote = (note: Omit<PreparationNote, 'id'>) => {
+    const newNote: PreparationNote = {
+      ...note,
+      id: `prep-${Date.now()}`
+    };
+    setPrepNotes(prev => [newNote, ...prev]);
   };
 
-  const openEditModal = (item: MoodboardItem) => {
-    setEditingItemId(item.id);
-    setTitle(item.title);
-    setCategory(item.category);
-    setMediaType(item.mediaType || 'image');
-    setMediaUrl(item.mediaUrl);
-    setThumbnailUrl(item.thumbnailUrl || '');
-    setCaption(item.caption || '');
-    setAddedBy(item.addedBy || currentMember);
-    setShowAddModal(true);
+  const editPrepNote = (id: string, updated: Partial<PreparationNote>) => {
+    setPrepNotes(prev => prev.map(n => n.id === id ? { ...n, ...updated } : n));
   };
 
-  const handleSaveSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const finalMediaUrl = mediaUrl.trim() || thumbnailUrl.trim();
-    if (!title.trim() || !finalMediaUrl) return;
+  const updatePrepNoteStatus = (id: string, status: PreparationNote['status']) => {
+    setPrepNotes(prev => prev.map(n => n.id === id ? { ...n, status } : n));
+  };
 
-    const thumb = thumbnailUrl.trim() || (mediaType === 'image' ? finalMediaUrl : '');
+  const deletePrepNote = (id: string) => {
+    setPrepNotes(prev => prev.filter(n => n.id !== id));
+  };
 
-    if (editingItemId) {
-      editMoodboardItem(editingItemId, {
-        title: title.trim(),
-        category,
-        mediaType,
-        mediaUrl: finalMediaUrl,
-        thumbnailUrl: thumb,
-        caption: caption.trim(),
-        addedBy
-      });
+  const togglePinPrepNote = (id: string) => {
+    setPrepNotes(prev => prev.map(n => n.id === id ? { ...n, isPinned: !n.isPinned } : n));
+  };
+
+  const addWishlistItem = (item: Omit<WishlistItem, 'id'>) => {
+    const newItem: WishlistItem = {
+      ...item,
+      id: `wish-${Date.now()}`
+    };
+    setWishlist(prev => [newItem, ...prev]);
+  };
+
+  const editWishlistItem = (id: string, updated: Partial<WishlistItem>) => {
+    setWishlist(prev => prev.map(w => w.id === id ? { ...w, ...updated } : w));
+  };
+
+  const toggleWishlistStatus = (id: string) => {
+    setWishlist(prev => prev.map(w => {
+      if (w.id === id) {
+        const nextStatus = w.status === 'Done' ? 'Want to Go' : 'Done';
+        return { ...w, status: nextStatus };
+      }
+      return w;
+    }));
+  };
+
+  const deleteWishlistItem = (id: string) => {
+    setWishlist(prev => prev.filter(w => w.id !== id));
+  };
+
+  const voteWishlist = (id: string, member: MemberName) => {
+    setWishlist(prev => prev.map(w => {
+      if (w.id === id) {
+        const votes = w.votes || [];
+        const hasVoted = votes.includes(member);
+        const updatedVotes = hasVoted
+          ? votes.filter(v => v !== member)
+          : [...votes, member];
+        return { ...w, votes: updatedVotes };
+      }
+      return w;
+    }));
+  };
+
+  const addMoodboardItem = (item: Omit<MoodboardItem, 'id' | 'createdAt'>) => {
+    const newItem: MoodboardItem = {
+      ...item,
+      id: `mb-${Date.now()}`,
+      createdAt: new Date().toISOString().split('T')[0],
+      likes: [currentMember]
+    };
+    setMoodboard(prev => [newItem, ...prev]);
+  };
+
+  const editMoodboardItem = (id: string, updated: Partial<MoodboardItem>) => {
+    setMoodboard(prev => prev.map(m => m.id === id ? { ...m, ...updated } : m));
+  };
+
+  const toggleMoodboardLike = (id: string, member: MemberName) => {
+    setMoodboard(prev => prev.map(m => {
+      if (m.id === id) {
+        const likes = m.likes || [];
+        const hasLiked = likes.includes(member);
+        const updatedLikes = hasLiked
+          ? likes.filter(l => l !== member)
+          : [...likes, member];
+        return { ...m, likes: updatedLikes };
+      }
+      return m;
+    }));
+  };
+
+  const deleteMoodboardItem = (id: string) => {
+    setMoodboard(prev => prev.filter(m => m.id !== id));
+  };
+
+  const addExpense = (item: Omit<ExpenseItem, 'id'>) => {
+    const newExpense: ExpenseItem = {
+      ...item,
+      id: `exp-${Date.now()}`
+    };
+    setExpenses(prev => [newExpense, ...prev]);
+  };
+
+  const deleteExpense = (id: string) => {
+    setExpenses(prev => prev.filter(e => e.id !== id));
+  };
+
+  const updateContribution = (member: MemberName, amountIDR: number) => {
+    setContributions(prev => prev.map(c => c.memberName === member ? { ...c, totalDebitIDR: amountIDR } : c));
+  };
+
+  const addKasDeposit = (deposit: Omit<KasDepositEntry, 'id'>) => {
+    const newDep: KasDepositEntry = {
+      ...deposit,
+      id: `dep-${Date.now()}`
+    };
+    setKasDeposits(prev => [newDep, ...prev]);
+  };
+
+  const editKasDeposit = (id: string, updated: Partial<KasDepositEntry>) => {
+    setKasDeposits(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d));
+  };
+
+  const deleteKasDeposit = (id: string) => {
+    setKasDeposits(prev => prev.filter(d => d.id !== id));
+  };
+
+  const addItineraryActivity = (dayNumber: number, activity: Omit<ItineraryActivity, 'id'>) => {
+    const newAct: ItineraryActivity = {
+      ...activity,
+      id: `act-${dayNumber}-${Date.now()}`
+    };
+    setItinerary(prev => prev.map(day => {
+      if (day.dayNumber === dayNumber) {
+        return {
+          ...day,
+          activities: [...day.activities, newAct].sort((a, b) => a.time.localeCompare(b.time))
+        };
+      }
+      return day;
+    }));
+  };
+
+  const editItineraryActivity = (dayNumber: number, activityId: string, updated: Partial<ItineraryActivity>) => {
+    setItinerary(prev => prev.map(day => {
+      if (day.dayNumber === dayNumber) {
+        return {
+          ...day,
+          activities: day.activities
+            .map(a => a.id === activityId ? { ...a, ...updated } : a)
+            .sort((a, b) => a.time.localeCompare(b.time))
+        };
+      }
+      return day;
+    }));
+  };
+
+  const deleteItineraryActivity = (dayNumber: number, activityId: string) => {
+    setItinerary(prev => prev.map(day => {
+      if (day.dayNumber === dayNumber) {
+        return {
+          ...day,
+          activities: day.activities.filter(a => a.id !== activityId)
+        };
+      }
+      return day;
+    }));
+  };
+
+  const toggleItineraryActivityDone = (dayNumber: number, activityId: string) => {
+    setItinerary(prev => prev.map(day => {
+      if (day.dayNumber === dayNumber) {
+        return {
+          ...day,
+          activities: day.activities.map(a => a.id === activityId ? { ...a, isDone: !a.isDone } : a)
+        };
+      }
+      return day;
+    }));
+  };
+
+  const voteAccommodation = (accId: string, member: MemberName) => {
+    setAccommodations(prev => prev.map(acc => {
+      if (acc.id === accId) {
+        const hasVoted = acc.votes.includes(member);
+        return {
+          ...acc,
+          votes: hasVoted ? acc.votes.filter(m => m !== member) : [...acc.votes, member]
+        };
+      }
+      return acc;
+    }));
+  };
+
+  const addAccommodation = (acc: Omit<AccommodationOption, 'id' | 'votes'>) => {
+    const newAcc: AccommodationOption = {
+      ...acc,
+      id: `acc-${Date.now()}`,
+      votes: [currentMember]
+    };
+    setAccommodations(prev => [...prev, newAcc]);
+  };
+
+  const editAccommodation = (id: string, updated: Partial<AccommodationOption>) => {
+    setAccommodations(prev => prev.map(a => a.id === id ? { ...a, ...updated } : a));
+  };
+
+  const deleteAccommodation = (id: string) => {
+    setAccommodations(prev => prev.filter(a => a.id !== id));
+  };
+
+  const toggleDocumentMember = (docId: string, member: MemberName) => {
+    setEssentialDocs(prev => prev.map(doc => {
+      if (doc.id === docId) {
+        const isReady = doc.readyMembers.includes(member);
+        const updated = isReady
+          ? doc.readyMembers.filter(m => m !== member)
+          : [...doc.readyMembers, member];
+        return { ...doc, readyMembers: updated };
+      }
+      return doc;
+    }));
+  };
+
+  const addEssentialDoc = (doc: Omit<EssentialDocument, 'id' | 'readyMembers'>) => {
+    const newDoc: EssentialDocument = {
+      ...doc,
+      id: `doc-${Date.now()}`,
+      readyMembers: []
+    };
+    setEssentialDocs(prev => [...prev, newDoc]);
+  };
+
+  const editEssentialDoc = (id: string, updated: Partial<EssentialDocument>) => {
+    setEssentialDocs(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d));
+  };
+
+  const deleteEssentialDoc = (id: string) => {
+    setEssentialDocs(prev => prev.filter(d => d.id !== id));
+  };
+
+  const resetToDefault = () => {
+    localStorage.clear();
+
+    setPrepNotes(INITIAL_PREPARATION_NOTES);
+    setWishlist(INITIAL_WISHLIST);
+    setMoodboard(INITIAL_MOODBOARD);
+    setExpenses(INITIAL_EXPENSES);
+    setContributions(DEFAULT_MEMBERS_CONTRIBUTIONS);
+    setKasDeposits(INITIAL_KAS_DEPOSITS);
+    setItinerary(INITIAL_ITINERARY);
+    setAccommodations(INITIAL_ACCOMMODATION_OPTIONS);
+    setEssentialDocs(INITIAL_ESSENTIAL_DOCUMENTS);
+    setExchangeRate(DEFAULT_EXCHANGE_RATE_IDR_PER_THB);
+    setCurrency('IDR');
+
+    syncToCloud({
+      prepNotes: INITIAL_PREPARATION_NOTES,
+      wishlist: INITIAL_WISHLIST,
+      moodboard: INITIAL_MOODBOARD,
+      expenses: INITIAL_EXPENSES,
+      contributions: DEFAULT_MEMBERS_CONTRIBUTIONS,
+      kasDeposits: INITIAL_KAS_DEPOSITS,
+      itinerary: INITIAL_ITINERARY,
+      accommodations: INITIAL_ACCOMMODATION_OPTIONS,
+      essentialDocs: INITIAL_ESSENTIAL_DOCUMENTS,
+      exchangeRate: DEFAULT_EXCHANGE_RATE_IDR_PER_THB,
+      updatedAt: new Date().toISOString()
+    });
+  };
+
+  // Helper formatting
+  const formatCurrency = (amountTHB?: number, amountIDR?: number): string => {
+    if (currency === 'THB') {
+      const val = amountTHB !== undefined ? amountTHB : (amountIDR ? amountIDR / exchangeRate : 0);
+      return `฿${Math.round(val).toLocaleString('id-ID')}`;
     } else {
-      addMoodboardItem({
-        title: title.trim(),
-        category,
-        mediaType,
-        mediaUrl: finalMediaUrl,
-        thumbnailUrl: thumb,
-        caption: caption.trim(),
-        addedBy
+      const val = amountIDR !== undefined ? amountIDR : (amountTHB ? amountTHB * exchangeRate : 0);
+      return `Rp ${Math.round(val).toLocaleString('id-ID')}`;
+    }
+  };
+
+  // Kas calculations
+  const getKasSummary = () => {
+    const totalKasInputIDR = kasDeposits.reduce((sum, d) => sum + d.amountIDR, 0);
+    // Expenses paid by "Shared Pocket"
+    const totalExpensesIDR = expenses
+      .filter(e => e.paidBy === 'Shared Pocket')
+      .reduce((sum, e) => sum + e.totalIDR, 0);
+
+    const saldoKasIDR = totalKasInputIDR - totalExpensesIDR;
+
+    return {
+      totalKasInputIDR,
+      totalExpensesIDR,
+      saldoKasIDR,
+      totalKasInputTHB: totalKasInputIDR / exchangeRate,
+      totalExpensesTHB: totalExpensesIDR / exchangeRate,
+      saldoKasTHB: saldoKasIDR / exchangeRate
+    };
+  };
+
+  // Personal Payment & Talangan Matrix
+  const getMemberSettlements = (): MemberSettlement[] => {
+    return ALL_MEMBERS.map(member => {
+      const contr = contributions.find(c => c.memberName === member)?.totalDebitIDR || 0;
+
+      // Total out-of-pocket paid by this member for group expenses
+      const totalTalanganIDR = expenses
+        .filter(e => e.paidBy === member)
+        .reduce((sum, e) => sum + e.totalIDR, 0);
+
+      // Fair share of group expenses (where member is included in splitBetween)
+      let fairShareIDR = 0;
+      expenses.forEach(e => {
+        if (e.splitBetween && e.splitBetween.includes(member)) {
+          fairShareIDR += e.totalIDR / e.splitBetween.length;
+        }
       });
+
+      // Net settlement: (Money put in Kas + Money spent out-of-pocket) - Fair Share of all group expenses
+      // If Positive: Member has paid MORE than their fair share -> Owed refund
+      // If Negative: Member has paid LESS than their fair share -> Needs to pay into settlement
+      const netBalanceIDR = (contr + totalTalanganIDR) - fairShareIDR;
+
+      return {
+        memberName: member,
+        totalDebitIDR: contr,
+        totalTalanganIDR,
+        fairShareIDR,
+        netBalanceIDR
+      };
+    });
+  };
+
+  const getSettlementInstructions = (): SettlementInstruction[] => {
+    const settlements = getMemberSettlements();
+    const debtors = settlements.filter(s => s.netBalanceIDR < -100).map(s => ({ ...s }));
+    const creditors = settlements.filter(s => s.netBalanceIDR > 100).map(s => ({ ...s }));
+
+    const instructions: SettlementInstruction[] = [];
+
+    let i = 0;
+    let j = 0;
+
+    while (i < debtors.length && j < creditors.length) {
+      const debtor = debtors[i];
+      const creditor = creditors[j];
+
+      const amountToPay = Math.min(Math.abs(debtor.netBalanceIDR), creditor.netBalanceIDR);
+
+      if (amountToPay > 100) {
+        instructions.push({
+          from: debtor.memberName,
+          to: creditor.memberName,
+          amountIDR: Math.round(amountToPay),
+          amountTHB: Math.round(amountToPay / exchangeRate)
+        });
+      }
+
+      debtor.netBalanceIDR += amountToPay;
+      creditor.netBalanceIDR -= amountToPay;
+
+      if (Math.abs(debtor.netBalanceIDR) < 100) i++;
+      if (creditor.netBalanceIDR < 100) j++;
     }
 
-    setTitle('');
-    setMediaUrl('');
-    setThumbnailUrl('');
-    setCaption('');
-    setShowAddModal(false);
+    return instructions;
   };
 
   return (
-    <div className="space-y-6 pb-20">
-      
-      {/* Header */}
-      <div className="bg-white p-5 sm:p-6 rounded-3xl border border-indigo-100/80 shadow-sm">
-        <div>
-          <div className="flex items-center space-x-2 text-xs font-black text-rose-500 uppercase tracking-widest mb-1">
-            <Camera className="w-4 h-4 text-rose-500" />
-            <span>Capture the Vibe</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-black text-indigo-950 tracking-tight">
-            Trip Moodboard & Reel Ideas
-          </h2>
-          <p className="text-xs text-indigo-400 font-medium">
-            Photo poses, outfit inspo, reel ideas, and unforgettable moments.
-          </p>
-        </div>
-      </div>
-
-      {/* Category Dropdown & Idea Button */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center space-x-2 bg-white px-3.5 py-2.5 rounded-2xl border border-indigo-100/80 shadow-2xs text-xs">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value as any)}
-            className="bg-transparent font-black text-indigo-950 outline-none cursor-pointer pr-1"
-          >
-            <option value="All">All Moods ({moodboard.length})</option>
-            {categories.map(cat => {
-              const count = moodboard.filter(m => m.category === cat).length;
-              return (
-                <option key={cat} value={cat}>
-                  {cat} ({count})
-                </option>
-              );
-            })}
-          </select>
-        </div>
-
-        <button
-          onClick={openAddModal}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition"
-        >
-          <Plus className="w-4 h-4 stroke-[3]" />
-          <span>Idea</span>
-        </button>
-      </div>
-
-      {/* Gallery Masonry / Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredItems.length === 0 ? (
-          <div className="col-span-full bg-white rounded-3xl p-12 text-center text-slate-400 text-xs border border-dashed border-slate-200">
-            No moodboard items found in this category. Click "Idea" to inspire the group!
-          </div>
-        ) : (
-          filteredItems.map(item => {
-            const isVideo = item.mediaType !== 'image';
-            const likesCount = item.likes?.length || 0;
-            const hasLiked = item.likes?.includes(currentMember);
-
-            return (
-              <div
-                key={item.id}
-                className="group bg-white rounded-2xl overflow-hidden border border-slate-200/80 shadow-xs hover:border-amber-300 transition flex flex-col justify-between"
-              >
-                <div>
-                  {/* Media Cover Container */}
-                  <div className="relative aspect-4/3 sm:aspect-square overflow-hidden bg-slate-900">
-                    <img
-                      src={item.thumbnailUrl || item.mediaUrl}
-                      alt={item.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                      referrerPolicy="no-referrer"
-                      onError={e => {
-                        // Fallback image if link fails
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1508009603885-50cf7c579365?q=80&w=800&auto=format&fit=crop';
-                      }}
-                    />
-
-                    {/* Media Type Badge Overlay */}
-                    <div className="absolute top-3 left-3 flex items-center space-x-1 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
-                      {isVideo ? <Video className="w-3 h-3 text-amber-400" /> : <ImageIcon className="w-3 h-3 text-emerald-400" />}
-                      <span className="uppercase">{item.mediaType}</span>
-                    </div>
-
-                    {/* Category Badge */}
-                    <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 text-[10px] font-extrabold shadow-sm">
-                      {item.category}
-                    </div>
-
-                    {/* Play Button Overlay for Video */}
-                    {isVideo && (
-                      <button
-                        onClick={() => setActiveMediaModal(item)}
-                        className="absolute inset-0 m-auto w-12 h-12 bg-white/90 hover:bg-white rounded-full flex items-center justify-center text-slate-900 shadow-xl transition transform hover:scale-110"
-                      >
-                        <Play className="w-6 h-6 fill-slate-900 ml-1 text-slate-900" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Body Info */}
-                  <div className="p-4 space-y-2">
-                    <h3 className="text-sm font-bold text-slate-900 leading-snug">
-                      {item.title}
-                    </h3>
-
-                    {item.caption && (
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        {item.caption}
-                      </p>
-                    )}
-
-                    {/* Reel/TikTok Direct Link if video */}
-                    {isVideo && (
-                      <a
-                        href={item.mediaUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center space-x-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200/80 hover:bg-amber-100 transition"
-                      >
-                        <Film className="w-3 h-3 text-amber-600" />
-                        <span className="truncate">Open Reel / TikTok Link</span>
-                        <ExternalLink className="w-3 h-3 ml-0.5" />
-                      </a>
-                    )}
-                  </div>
-                </div>
-
-                {/* Footer Bar */}
-                <div className="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs">
-                  <div className="flex items-center space-x-1.5">
-                    <span className="text-[10px] text-slate-400">Added by:</span>
-                    <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-bold text-[10px]">
-                      {item.addedBy}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => toggleMoodboardLike(item.id, currentMember)}
-                      className={`flex items-center space-x-1 px-2.5 py-1 rounded-full text-xs font-bold transition ${
-                        hasLiked
-                          ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                          : 'bg-white text-slate-500 border border-slate-200 hover:bg-rose-50'
-                      }`}
-                    >
-                      <Heart className={`w-3.5 h-3.5 ${hasLiked ? 'fill-rose-600 text-rose-600' : ''}`} />
-                      <span>{likesCount}</span>
-                    </button>
-
-                    <button
-                      onClick={() => openEditModal(item)}
-                      className="p-1 text-slate-400 hover:text-indigo-900 rounded transition"
-                      title="Edit"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => deleteMoodboardItem(item.id)}
-                      className="p-1 text-slate-400 hover:text-rose-600 rounded transition"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Video / Image Modal Lightbox */}
-      {activeMediaModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-5 max-w-lg w-full shadow-2xl border border-slate-800 space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-bold rounded-full">
-                {activeMediaModal.category} · {activeMediaModal.mediaType.toUpperCase()}
-              </span>
-              <button
-                onClick={() => setActiveMediaModal(null)}
-                className="text-slate-400 hover:text-slate-700 text-sm font-bold"
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            <h3 className="text-base font-extrabold text-slate-900">
-              {activeMediaModal.title}
-            </h3>
-
-            {/* Media Box */}
-            <div className="rounded-2xl overflow-hidden bg-black max-h-[350px] flex items-center justify-center">
-              <img
-                src={activeMediaModal.thumbnailUrl || activeMediaModal.mediaUrl}
-                alt={activeMediaModal.title}
-                className="max-h-[350px] w-auto object-contain"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-
-            {activeMediaModal.caption && (
-              <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                {activeMediaModal.caption}
-              </p>
-            )}
-
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-              <span className="text-slate-400">Creator idea by {activeMediaModal.addedBy}</span>
-              <a
-                href={activeMediaModal.mediaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-amber-400 rounded-xl font-bold flex items-center space-x-1"
-              >
-                <span>Open Video / Reel Link</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Add/Edit Moodboard Idea */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-lg font-bold text-slate-900">
-                {editingItemId ? 'Edit Idea' : 'Idea'}
-              </h3>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-xs text-slate-500 mb-4">
-              Add outfit photos, aesthetic inspo, or TikTok video link.
-            </p>
-
-            <form onSubmit={handleSaveSubmit} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Content Title *</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="e.g. Can I try your drink? TikTok reel"
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Category</label>
-                  <select
-                    value={category}
-                    onChange={e => setCategory(e.target.value as MoodboardCategory)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  >
-                    <option value="Outfit">Outfit / OOTD</option>
-                    <option value="Sleep Over">Sleep Over</option>
-                    <option value="Video">Video Reel Idea</option>
-                    <option value="Color Hunt">Color Hunt</option>
-                    <option value="Food">Food / Mam Vlog</option>
-                    <option value="Inspiration">Inspiration</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Media Format</label>
-                  <select
-                    value={mediaType}
-                    onChange={e => setMediaType(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                  >
-                    <option value="image">Photo / Image</option>
-                    <option value="tiktok">TikTok Video Link</option>
-                    <option value="instagram">Instagram Reel Link</option>
-                    <option value="video">Direct Video URL</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Thumbnail Cover Photo (Optional) - Placed ABOVE Media URL */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Thumbnail Cover Photo (Optional)</label>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <label className="cursor-pointer px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 inline-flex items-center space-x-1.5 shrink-0 transition">
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Upload Foto</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                      />
-                    </label>
-                    <input
-                      type="url"
-                      value={thumbnailUrl}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setThumbnailUrl(val);
-                        if (!mediaUrl.trim() || mediaType === 'image') {
-                          setMediaUrl(val);
-                        }
-                      }}
-                      placeholder="Atau masukkan URL foto"
-                      className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                    />
-                  </div>
-                  {thumbnailUrl && (
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-slate-200 shadow-2xs">
-                      <img src={thumbnailUrl} alt="Thumbnail preview" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setThumbnailUrl('')}
-                        className="absolute top-1 right-1 p-0.5 bg-black/60 text-white rounded-full hover:bg-black/80"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Media URL / Reel Link *</label>
-                <input
-                  type="text"
-                  value={mediaUrl}
-                  onChange={e => setMediaUrl(e.target.value)}
-                  placeholder="https://images.unsplash.com/... OR https://www.tiktok.com/..."
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Caption / Concept Description</label>
-                <textarea
-                  value={caption}
-                  onChange={e => setCaption(e.target.value)}
-                  placeholder="Idea note for group photo pose, outfit theme, or video script..."
-                  rows={2}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Added By</label>
-                <select
-                  value={addedBy}
-                  onChange={e => setAddedBy(e.target.value as MemberName)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                >
-                  {ALL_MEMBERS.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 rounded-xl shadow-xs"
-                >
-                  Save Idea
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-    </div>
+    <TripContext.Provider
+      value={{
+        currentMember,
+        setCurrentMember,
+        currency,
+        setCurrency,
+        exchangeRate,
+        setExchangeRate,
+        activeTab,
+        setActiveTab,
+        isCloudSynced,
+        prepNotes,
+        wishlist,
+        moodboard,
+        expenses,
+        contributions,
+        kasDeposits,
+        itinerary,
+        accommodations,
+        essentialDocs,
+        addPrepNote,
+        editPrepNote,
+        updatePrepNoteStatus,
+        deletePrepNote,
+        togglePinPrepNote,
+        addWishlistItem,
+        editWishlistItem,
+        toggleWishlistStatus,
+        deleteWishlistItem,
+        voteWishlist,
+        addMoodboardItem,
+        editMoodboardItem,
+        toggleMoodboardLike,
+        deleteMoodboardItem,
+        addExpense,
+        deleteExpense,
+        updateContribution,
+        addKasDeposit,
+        editKasDeposit,
+        deleteKasDeposit,
+        addItineraryActivity,
+        editItineraryActivity,
+        deleteItineraryActivity,
+        toggleItineraryActivityDone,
+        voteAccommodation,
+        addAccommodation,
+        editAccommodation,
+        deleteAccommodation,
+        toggleDocumentMember,
+        addEssentialDoc,
+        editEssentialDoc,
+        deleteEssentialDoc,
+        resetToDefault,
+        formatCurrency,
+        getKasSummary,
+        getMemberSettlements,
+        getSettlementInstructions
+      }}
+    >
+      {children}
+    </TripContext.Provider>
   );
+};
+
+export const useTrip = () => {
+  const context = useContext(TripContext);
+  if (!context) {
+    throw new Error('useTrip must be used within a TripProvider');
+  }
+  return context;
 };
