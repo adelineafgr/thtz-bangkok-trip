@@ -36,10 +36,18 @@ import {
  */
 const WishlistCardMediaPreview: React.FC<{ item: WishlistItem }> = ({ item }) => {
   const [isPlaying, setIsPlaying] = useState(false);
-  const urlToParse = item.imageUrl || item.linkUrl || '';
-  if (!urlToParse) return null;
+  const linkParsed = parseMediaUrl(item.linkUrl || '');
+  const imageParsed = parseMediaUrl(item.imageUrl || '');
 
-  const parsed = parseMediaUrl(urlToParse);
+  // Prioritize video media (YouTube, TikTok, Instagram) found in either linkUrl or imageUrl
+  const parsed = (linkParsed.youtubeId || linkParsed.instagramCode || linkParsed.tiktokId)
+    ? linkParsed
+    : (imageParsed.youtubeId || imageParsed.instagramCode || imageParsed.tiktokId)
+    ? imageParsed
+    : (imageParsed.mediaUrl && imageParsed.type === 'image' ? imageParsed : linkParsed);
+
+  const urlToParse = parsed.mediaUrl || item.imageUrl || item.linkUrl || '';
+  if (!urlToParse) return null;
 
   // 1. YouTube
   if (parsed.youtubeId) {
@@ -57,7 +65,10 @@ const WishlistCardMediaPreview: React.FC<{ item: WishlistItem }> = ({ item }) =>
 
     return (
       <div
-        onClick={() => setIsPlaying(true)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsPlaying(true);
+        }}
         className="w-full h-full cursor-pointer relative group"
         title="Klik untuk putar video"
       >
@@ -111,7 +122,8 @@ const WishlistCardMediaPreview: React.FC<{ item: WishlistItem }> = ({ item }) =>
     if (displaySrc) {
       return (
         <div
-          onClick={() => {
+          onClick={(e) => {
+            e.stopPropagation();
             if (item.linkUrl) window.open(item.linkUrl, '_blank');
           }}
           className="w-full h-full cursor-pointer group"
