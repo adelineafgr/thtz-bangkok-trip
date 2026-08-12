@@ -45,7 +45,10 @@ const CardMediaPreview: React.FC<{ item: MoodboardItem }> = ({ item }) => {
 
     return (
       <div
-        onClick={() => setIsPlaying(true)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsPlaying(true);
+        }}
         className="w-full h-full cursor-pointer relative group"
         title="Klik untuk putar video"
       >
@@ -54,6 +57,11 @@ const CardMediaPreview: React.FC<{ item: MoodboardItem }> = ({ item }) => {
           alt={item.title}
           className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
         />
+        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition">
+          <div className="w-12 h-12 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+            <Play className="w-6 h-6 fill-white ml-0.5 text-white" />
+          </div>
+        </div>
       </div>
     );
   }
