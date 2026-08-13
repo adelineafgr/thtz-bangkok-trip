@@ -31,6 +31,40 @@ import {
   Video
 } from 'lucide-react';
 
+const LiveTikTokEmbed = React.memo<{ tiktokId: string; title: string }>(({ tiktokId, title }) => {
+  return (
+    <div className="w-full h-full overflow-hidden bg-slate-950 relative">
+      <iframe
+        src={`https://www.tiktok.com/embed/v2/${tiktokId}`}
+        title={title}
+        className="w-full h-full border-0 bg-slate-950"
+        scrolling="no"
+        loading="lazy"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+    </div>
+  );
+});
+LiveTikTokEmbed.displayName = 'LiveTikTokEmbed';
+
+const LiveInstagramEmbed = React.memo<{ instagramCode: string; title: string }>(({ instagramCode, title }) => {
+  return (
+    <div className="w-full h-full overflow-hidden bg-slate-900 relative">
+      <iframe
+        src={`https://www.instagram.com/p/${instagramCode}/embed`}
+        title={title}
+        className="w-full h-full border-0 bg-white"
+        scrolling="no"
+        loading="lazy"
+        allow="autoplay; clipboard-write; encrypted-media; picture-in-picture"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
+    </div>
+  );
+});
+LiveInstagramEmbed.displayName = 'LiveInstagramEmbed';
+
 /**
  * Card Media Preview for Wishlist / Bucketlist items
  */
@@ -88,30 +122,12 @@ const WishlistCardMediaPreview: React.FC<{ item: WishlistItem }> = ({ item }) =>
 
   // 2. Instagram
   if (parsed.instagramCode) {
-    return (
-      <div className="w-full h-full overflow-hidden bg-slate-900 relative">
-        <iframe
-          src={`https://www.instagram.com/p/${parsed.instagramCode}/embed`}
-          title={item.title}
-          className="w-full h-full border-0 bg-white"
-          scrolling="no"
-        />
-      </div>
-    );
+    return <LiveInstagramEmbed instagramCode={parsed.instagramCode} title={item.title} />;
   }
 
   // 3. TikTok
   if (parsed.tiktokId) {
-    return (
-      <div className="w-full h-full overflow-hidden bg-slate-950 relative">
-        <iframe
-          src={`https://www.tiktok.com/embed/v2/${parsed.tiktokId}`}
-          title={item.title}
-          className="w-full h-full border-0 bg-slate-950"
-          scrolling="no"
-        />
-      </div>
-    );
+    return <LiveTikTokEmbed tiktokId={parsed.tiktokId} title={item.title} />;
   }
 
   // 4. Image URL (Direct image or Pinterest)
