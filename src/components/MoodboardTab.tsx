@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTrip } from '../context/TripContext';
 import { MoodboardCategory, MoodboardItem, MemberName, ALL_MEMBERS } from '../types';
 import { parseMediaUrl, extractUrlFromEmbedCode } from '../utils/mediaUtils';
@@ -17,7 +17,10 @@ import {
   Pencil,
   X,
   CheckCircle2,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Filter,
+  Tag,
+  FolderPlus
 } from 'lucide-react';
 
 const LiveTikTokEmbed = React.memo<{ tiktokId: string; title: string }>(({ tiktokId, title }) => {
@@ -145,23 +148,85 @@ export const MoodboardTab: React.FC = () => {
     currentMember
   } = useTrip();
 
+  const DEFAULT_CATEGORIES: string[] = ['Sleep Over', 'Outfit', 'Video', 'Color Hunt', 'Food', 'Inspiration'];
+
   const [selectedCategory, setSelectedCategory] = useState<MoodboardCategory | 'All'>('All');
+  const [selectedMediaType, setSelectedMediaType] = useState<'All' | 'Foto' | 'Video'>('All');
+
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('moodboard_custom_categories');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [newCatInput, setNewCatInput] = useState('');
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [activeMediaModal, setActiveMediaModal] = useState<MoodboardItem | null>(null);
 
   // Form State
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<MoodboardCategory>('Outfit');
+  const [isAddingNewCategoryInForm, setIsAddingNewCategoryInForm] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'tiktok' | 'instagram'>('image');
   const [mediaUrl, setMediaUrl] = useState('');
   const [caption, setCaption] = useState('');
   const [addedBy, setAddedBy] = useState<MemberName>(currentMember);
 
-  const categories: MoodboardCategory[] = ['Sleep Over', 'Outfit', 'Video', 'Color Hunt', 'Food', 'Inspiration'];
+  useEffect(() => {
+    try {
+      localStorage.setItem('moodboard_custom_categories', JSON.stringify(customCategories));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [customCategories]);
+
+  // Combined active categories list
+  const allCategories = Array.from(new Set([
+    ...DEFAULT_CATEGORIES,
+    ...customCategories,
+    ...moodboard.map(item => item.category).filter(Boolean)
+  ]));
+
+  const handleAddCustomCategory = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (!allCategories.includes(trimmed)) {
+      setCustomCategories(prev => [...prev, trimmed]);
+    }
+    setCategory(trimmed);
+  };
+
+  const handleDeleteCustomCategory = (catToDelete: string) => {
+    setCustomCategories(prev => prev.filter(c => c !== catToDelete));
+    if (selectedCategory === catToDelete) {
+      setSelectedCategory('All');
+    }
+  };
+
+  // Helper to check if an item is a video
+  const checkIsVideo = (item: MoodboardItem) => {
+    const parsed = parseMediaUrl(item.mediaUrl);
+    return item.mediaType === 'video' || item.mediaType === 'tiktok' || item.mediaType === 'instagram' || parsed.type !== 'image' || !!parsed.youtubeId || !!parsed.tiktokId || !!parsed.instagramCode;
+  };
+
+  const photoCount = moodboard.filter(item => !checkIsVideo(item)).length;
+  const videoCount = moodboard.filter(item => checkIsVideo(item)).length;
 
   const filteredItems = moodboard.filter(item => {
+    // Category filter
     if (selectedCategory !== 'All' && item.category !== selectedCategory) return false;
+
+    // Media type filter
+    const isVideo = checkIsVideo(item);
+    if (selectedMediaType === 'Foto' && isVideo) return false;
+    if (selectedMediaType === 'Video' && !isVideo) return false;
+
     return true;
   });
 
@@ -178,7 +243,9 @@ export const MoodboardTab: React.FC = () => {
   const openAddModal = () => {
     setEditingItemId(null);
     setTitle('');
-    setCategory('Outfit');
+    setCategory(allCategories[0] || 'Outfit');
+    setIsAddingNewCategoryInForm(false);
+    setCustomCategoryInput('');
     setMediaType('image');
     setMediaUrl('');
     setCaption('');
@@ -190,6 +257,8 @@ export const MoodboardTab: React.FC = () => {
     setEditingItemId(item.id);
     setTitle(item.title);
     setCategory(item.category);
+    setIsAddingNewCategoryInForm(false);
+    setCustomCategoryInput('');
     setMediaType(item.mediaType || 'image');
     setMediaUrl(item.mediaUrl);
     setCaption(item.caption || '');
@@ -202,6 +271,12 @@ export const MoodboardTab: React.FC = () => {
     const cleanUrl = extractUrlFromEmbedCode(mediaUrl.trim());
     if (!title.trim() || !cleanUrl) return;
 
+    let finalCategory = category;
+    if (isAddingNewCategoryInForm && customCategoryInput.trim()) {
+      finalCategory = customCategoryInput.trim();
+      handleAddCustomCategory(finalCategory);
+    }
+
     const parsed = parseMediaUrl(cleanUrl);
     const finalMediaType = mediaType || parsed.type;
     const finalThumb = parsed.thumbnailUrl || cleanUrl;
@@ -209,7 +284,7 @@ export const MoodboardTab: React.FC = () => {
     if (editingItemId) {
       editMoodboardItem(editingItemId, {
         title: title.trim(),
-        category,
+        category: finalCategory,
         mediaType: finalMediaType,
         mediaUrl: cleanUrl,
         thumbnailUrl: finalThumb,
@@ -219,7 +294,7 @@ export const MoodboardTab: React.FC = () => {
     } else {
       addMoodboardItem({
         title: title.trim(),
-        category,
+        category: finalCategory,
         mediaType: finalMediaType,
         mediaUrl: cleanUrl,
         thumbnailUrl: finalThumb,
@@ -231,6 +306,8 @@ export const MoodboardTab: React.FC = () => {
     setTitle('');
     setMediaUrl('');
     setCaption('');
+    setIsAddingNewCategoryInForm(false);
+    setCustomCategoryInput('');
     setShowAddModal(false);
   };
 
@@ -248,34 +325,63 @@ export const MoodboardTab: React.FC = () => {
             Trip Moodboard & Reel Ideas
           </h2>
           <p className="text-xs text-indigo-400 font-medium">
-            Photo poses, outfit inspo, reel ideas, and unforgettable moments.
+            Photo poses, outfit inspo, reel ideas, and custom categories.
           </p>
         </div>
       </div>
 
-      {/* Category Dropdown & Idea Button */}
+      {/* Dropdown Filters & Toolbar Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center space-x-2 bg-white px-3.5 py-2.5 rounded-2xl border border-indigo-100/80 shadow-2xs text-xs">
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value as any)}
-            className="bg-transparent font-black text-indigo-950 outline-none cursor-pointer pr-1"
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Dropdown Filter Media (Foto / Video / Semua) */}
+          <div className="flex items-center space-x-2 bg-white px-3.5 py-2.5 rounded-2xl border border-indigo-100/80 shadow-2xs text-xs">
+            <Filter className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+            <select
+              value={selectedMediaType}
+              onChange={(e) => setSelectedMediaType(e.target.value as 'All' | 'Foto' | 'Video')}
+              className="bg-transparent font-black text-indigo-950 outline-none cursor-pointer pr-1"
+            >
+              <option value="All">Semua Media ({moodboard.length})</option>
+              <option value="Foto">📷 Foto ({photoCount})</option>
+              <option value="Video">🎥 Video ({videoCount})</option>
+            </select>
+          </div>
+
+          {/* Dropdown Filter Kategori (Disamping Filter Video/Foto) */}
+          <div className="flex items-center space-x-2 bg-white px-3.5 py-2.5 rounded-2xl border border-indigo-100/80 shadow-2xs text-xs">
+            <Tag className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value as any)}
+              className="bg-transparent font-black text-slate-800 outline-none cursor-pointer pr-1"
+            >
+              <option value="All">Semua Kategori ({moodboard.length})</option>
+              {allCategories.map(cat => {
+                const count = moodboard.filter(m => m.category === cat).length;
+                return (
+                  <option key={cat} value={cat}>
+                    {cat} ({count})
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+
+          {/* Tombol Kustomisasi Kategori */}
+          <button
+            onClick={() => setShowCategoryModal(true)}
+            className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200/80 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs"
+            title="Tambah atau kelola kategori kustom"
           >
-            <option value="All">All Moods ({moodboard.length})</option>
-            {categories.map(cat => {
-              const count = moodboard.filter(m => m.category === cat).length;
-              return (
-                <option key={cat} value={cat}>
-                  {cat} ({count})
-                </option>
-              );
-            })}
-          </select>
+            <FolderPlus className="w-3.5 h-3.5 text-amber-700" />
+            <span>+ Kategori</span>
+          </button>
         </div>
 
+        {/* Tombol + Idea */}
         <button
           onClick={openAddModal}
-          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition"
+          className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-tight rounded-full shadow-md flex items-center space-x-1.5 transition ml-auto"
         >
           <Plus className="w-4 h-4 stroke-[3]" />
           <span>Idea</span>
@@ -585,19 +691,38 @@ export const MoodboardTab: React.FC = () => {
 
               {/* Category */}
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Category</label>
-                <select
-                  value={category}
-                  onChange={e => setCategory(e.target.value as MoodboardCategory)}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
-                >
-                  <option value="Outfit">Outfit / OOTD</option>
-                  <option value="Sleep Over">Sleep Over</option>
-                  <option value="Video">Video Reel Idea</option>
-                  <option value="Color Hunt">Color Hunt</option>
-                  <option value="Food">Food / Mam Vlog</option>
-                  <option value="Inspiration">Inspiration</option>
-                </select>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700">Category</label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingNewCategoryInForm(!isAddingNewCategoryInForm)}
+                    className="text-amber-600 hover:text-amber-700 font-bold text-[11px] flex items-center gap-1"
+                  >
+                    <FolderPlus className="w-3 h-3" />
+                    <span>{isAddingNewCategoryInForm ? 'Pilih Kategori Ada' : '+ Kategori Baru'}</span>
+                  </button>
+                </div>
+
+                {isAddingNewCategoryInForm ? (
+                  <input
+                    type="text"
+                    value={customCategoryInput}
+                    onChange={e => setCustomCategoryInput(e.target.value)}
+                    placeholder="Ketik nama kategori baru..."
+                    className="w-full px-3 py-2 border border-amber-300 rounded-xl text-xs font-bold focus:ring-2 focus:ring-amber-500 focus:outline-none bg-amber-50/30"
+                    required
+                  />
+                ) : (
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value as MoodboardCategory)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none bg-white"
+                  >
+                    {allCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -640,6 +765,97 @@ export const MoodboardTab: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Category Manager Modal */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-1.5">
+                <FolderPlus className="w-4 h-4 text-amber-600" />
+                <span>Kelola Kategori Moodboard</span>
+              </h3>
+              <button
+                onClick={() => setShowCategoryModal(false)}
+                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Add New Category */}
+            <form
+              onSubmit={e => {
+                e.preventDefault();
+                if (newCatInput.trim()) {
+                  handleAddCustomCategory(newCatInput);
+                  setNewCatInput('');
+                }
+              }}
+              className="flex gap-2"
+            >
+              <input
+                type="text"
+                value={newCatInput}
+                onChange={e => setNewCatInput(e.target.value)}
+                placeholder="Ketik nama kategori baru..."
+                className="flex-1 px-3 py-2 border border-slate-300 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shrink-0"
+              >
+                + Tambah
+              </button>
+            </form>
+
+            {/* Category List */}
+            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Daftar Kategori Saat Ini
+              </span>
+              {allCategories.map(cat => {
+                const isDefault = DEFAULT_CATEGORIES.includes(cat);
+                const itemCount = moodboard.filter(m => m.category === cat).length;
+
+                return (
+                  <div
+                    key={cat}
+                    className="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl text-xs font-semibold text-slate-800 border border-slate-100"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>{cat}</span>
+                      <span className="text-[10px] bg-slate-200/80 text-slate-600 px-1.5 py-0.2 rounded-full font-extrabold">
+                        {itemCount} item
+                      </span>
+                    </div>
+                    {!isDefault && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCustomCategory(cat)}
+                        className="text-slate-400 hover:text-rose-600 p-1 rounded transition"
+                        title="Hapus Kategori Kustom"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowCategoryModal(false)}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition"
+              >
+                Selesai
+              </button>
+            </div>
           </div>
         </div>
       )}
